@@ -25,6 +25,7 @@ from pandas import DataFrame
 import random
 import numpy as np
 import os
+import time
 
 
 import matplotlib
@@ -43,14 +44,19 @@ if torch.cuda.is_available():
     print(torch.cuda.get_device_name(0))    
 
 #===================================================================  
-program = "SL ResNet18 on HAM10000 - 4/2"
+from datetime import date, datetime
+today = f"{date.today()}".replace("-","_")
+timeS=f"{datetime.now().strftime('%H:%M:%S')}".replace(":","_")
+program=os.path.basename(__file__)+"_"+today+"_"+timeS
 print(f"---------{program}----------")              # this is to identify the program in the slurm outputs files
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # To print in color -------test/train of the client side
 def prRed(skk): print("\033[91m {}\033[00m" .format(skk)) 
-def prGreen(skk): print("\033[92m {}\033[00m" .format(skk))     
+def prGreen(skk): print("\033[92m {}\033[00m" .format(skk))   
+
+start_time = time.time()  
 
 #===================================================================  
 # No. of users
@@ -58,6 +64,7 @@ num_users = 5
 epochs = 100
 frac = 1   # participation of clients; if 1 then 100% clients participate in SL
 lr = 0.0001
+Tarray = []
 
 #=====================================================================================================
 #                           Client-side Model definition
@@ -418,6 +425,10 @@ def evaluate_server(fx_client, y, idx, len_batch, ell):
                 print(' Train: Round {:3d}, Avg Accuracy {:.3f} | Avg Loss {:.3f}'.format(ell, acc_avg_all_user_train, loss_avg_all_user_train))
                 print(' Test: Round {:3d}, Avg Accuracy {:.3f} | Avg Loss {:.3f}'.format(ell, acc_avg_all_user, loss_avg_all_user))
                 print("==========================================================")
+                if len(Tarray) == 0:
+                    Tarray.append(time.time()-start_time)
+                else:
+                    Tarray.append(time.time()-start_time-Tarray[len(Tarray)-1])
          
     return 
 
