@@ -9,8 +9,16 @@
 
 # This program is Version1: Single program simulation 
 # ============================================================================
-from Dictionary_Types.dic_fmnist10 import data_name, num_channels, img_type
-from settings import ResNetType, num_users, epochs, local_ep, frac, lr
+from settings import ResNetType, num_users, epochs, local_ep, frac, lr, training_sorce
+
+if training_sorce=="mnist10":
+    from Dictionary_Types.dic_mnist10 import data_name, num_channels, img_type
+elif training_sorce=="fmnist10":
+    from Dictionary_Types.dic_fmnist10 import data_name, num_channels, img_type
+elif training_sorce=="cifar10":
+    from Dictionary_Types.dic_cifar10 import data_name, num_channels, img_type
+elif training_sorce=="cifar100":  
+    from Dictionary_Types.dic_cifar100 import data_name, num_channels, img_type
 
 import torch
 from torch import nn
@@ -28,6 +36,7 @@ from pandas import DataFrame
 import random
 import numpy as np
 import os
+import time
 
 
 import matplotlib
@@ -39,6 +48,8 @@ from datetime import date, datetime
 today = f"{date.today()}".replace("-","_")
 timeS=f"{datetime.now().strftime('%H:%M:%S')}".replace(":","_")
 program=os.path.basename(__file__)+"_"+today+"_"+timeS+data_name
+TsArray=[]
+TcArray=[]
 
 SEED = 1234
 random.seed(SEED)
@@ -414,7 +425,7 @@ class Client(object):
         self.idx = idx
         self.device = device
         self.lr = lr
-        self.local_ep = 1 
+        self.local_ep = local_ep
         #self.selected_clients = []
         self.ldr_train = DataLoader(DatasetSplit(dataset_train, idxs), batch_size = 256*4, shuffle = True)
         self.ldr_test = DataLoader(DatasetSplit(dataset_test, idxs_test), batch_size = 256*4, shuffle = True)
@@ -423,6 +434,8 @@ class Client(object):
     def train(self, net):
         net.train()
         optimizer_client = torch.optim.Adam(net.parameters(), lr = self.lr) 
+        tempArray=[]
+        start_time_local=time.time() 
         
         for iter in range(self.local_ep):
             len_batch = len(self.ldr_train)
@@ -442,8 +455,8 @@ class Client(object):
                             
             
             #prRed('Client{} Train => Epoch: {}'.format(self.idx, ell))
-           
-        return net.state_dict() 
+            tempArray.append((time.time() - start_time_local)/60)
+        return net.state_dict() , tempArray
     
     def evaluate(self, net, ell):
         net.eval()
@@ -554,21 +567,24 @@ dict_users_test = dataset_iid(dataset_test, num_users)
 
 #net_glob_client.train()
 # this epoch is global epoch, also known as rounds
+start_time = time.time() 
 for iter in range(epochs):
     m = max(int(frac * num_users), 1)
     idxs_users = np.random.choice(range(num_users), m, replace = False)
-
+    tempClientArray=[]
     # Sequential training/testing among clients      
     for idx in idxs_users:
         local = Client(net_glob_client, idx, lr, device, dataset_train = dataset_train, dataset_test = dataset_test, idxs = dict_users[idx], idxs_test = dict_users_test[idx])
         # Training ------------------
-        w_client = local.train(net = copy.deepcopy(net_glob_client).to(device))
+        w_client,tempArray = local.train(net = copy.deepcopy(net_glob_client).to(device))
               
         # Testing -------------------
         local.evaluate(net = copy.deepcopy(net_glob_client).to(device), ell= iter)
-        
+        tempClientArray.append(tempArray)
         # copy weight to net_glob_client -- use to update the client-side model of the next client to be trained
         net_glob_client.load_state_dict(w_client)
+    TcArray.append(tempClientArray)
+    TsArray.append((time.time() - start_time)/60)
    
 #===================================================================================     
 
@@ -577,7 +593,7 @@ print("Training and Evaluation completed!")
 #===============================================================================
 # Save output data to .excel file (we use for comparision plots)
 round_process = [i for i in range(1, len(acc_train_collect)+1)]
-df = DataFrame({'round': round_process,'acc_train':acc_train_collect, 'acc_test':acc_test_collect})     
+df = DataFrame({'round': round_process,'acc_train':acc_train_collect, 'acc_test':acc_test_collect, 'Gobal E Time (m)':TsArray, 'Local e Time per Client (m)': TcArray})     
 file_name = f"{program}_{num_users}.xlsx" 
 df.to_excel(file_name, sheet_name= "v1_test", index = False)     
 

@@ -1,5 +1,5 @@
 data_name="cifar100"
-
+num_channels=3
 img_type={
     0: "apple",
 

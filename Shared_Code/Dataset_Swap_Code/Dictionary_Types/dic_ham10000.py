@@ -1,4 +1,5 @@
 data_name="ham10000"
+num_channels=3
 img_type = {
     'nv': 'Melanocytic nevi',
     'mel': 'Melanoma',

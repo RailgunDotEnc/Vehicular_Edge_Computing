@@ -9,8 +9,16 @@
 
 # This program is Version1: Single program simulation 
 # ===========================================================
-from Dictionary_Types.dic_fmnist10 import data_name, num_channels, img_type
-from settings import ResNetType, num_users, epochs, local_ep, frac, lr
+from settings import ResNetType, num_users, epochs, local_ep, frac, lr, training_sorce
+
+if training_sorce=="mnist10":
+    from Dictionary_Types.dic_mnist10 import data_name, num_channels, img_type
+elif training_sorce=="fmnist10":
+    from Dictionary_Types.dic_fmnist10 import data_name, num_channels, img_type
+elif training_sorce=="cifar10":
+    from Dictionary_Types.dic_cifar10 import data_name, num_channels, img_type
+elif training_sorce=="cifar100":  
+    from Dictionary_Types.dic_cifar100 import data_name, num_channels, img_type
 
 import torch
 from torch import nn
@@ -30,11 +38,14 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import copy
 import sys
+import time
 
 from datetime import date, datetime
 today = f"{date.today()}".replace("-","_")
 timeS=f"{datetime.now().strftime('%H:%M:%S')}".replace(":","_")
 program=os.path.basename(__file__)+"_"+today+"_"+timeS+data_name
+TsArray=[]
+TcArray=[]
 
 SEED = 1234
 random.seed(SEED)
@@ -81,7 +92,7 @@ class LocalUpdate(object):
         self.idx = idx
         self.device = device
         self.lr = lr
-        self.local_ep = 1
+        self.local_ep = local_ep
         self.loss_func = nn.CrossEntropyLoss()
         self.selected_clients = []
         self.ldr_train = DataLoader(DatasetSplit(dataset_train, idxs), batch_size = 256, shuffle = True)
@@ -95,6 +106,9 @@ class LocalUpdate(object):
         
         epoch_acc = []
         epoch_loss = []
+        
+        tempArray=[]
+        start_time_local=time.time() 
         for iter in range(self.local_ep):
             batch_acc = []
             batch_loss = []
@@ -122,7 +136,9 @@ class LocalUpdate(object):
                         iter, acc.item(), loss.item()))
             epoch_loss.append(sum(batch_loss)/len(batch_loss))
             epoch_acc.append(sum(batch_acc)/len(batch_acc))
-        return net.state_dict(), sum(epoch_loss) / len(epoch_loss), sum(epoch_acc) / len(epoch_acc)
+            #Keep local time 
+            tempArray.append((time.time() - start_time_local)/60)
+        return net.state_dict(), sum(epoch_loss) / len(epoch_loss), sum(epoch_acc) / len(epoch_acc), tempArray
     
     def evaluate(self, net):
         net.eval()
@@ -383,16 +399,19 @@ acc_train_collect = []
 loss_test_collect = []
 acc_test_collect = []
 
+start_time = time.time() 
 for iter in range(epochs):
     w_locals, loss_locals_train, acc_locals_train, loss_locals_test, acc_locals_test = [], [], [], [], []
     m = max(int(frac * num_users), 1)
     idxs_users = np.random.choice(range(num_users), m, replace = False)
     
+    tempClientArray=[]
     # Training/Testing simulation
     for idx in idxs_users: # each client
         local = LocalUpdate(idx, lr, device, dataset_train = dataset_train, dataset_test = dataset_test, idxs = dict_users[idx], idxs_test = dict_users_test[idx])
         # Training ------------------
-        w, loss_train, acc_train = local.train(net = copy.deepcopy(net_glob).to(device))
+        w, loss_train, acc_train, tempArray = local.train(net = copy.deepcopy(net_glob).to(device))
+        tempClientArray.append(tempArray)
         w_locals.append(copy.deepcopy(w))
         loss_locals_train.append(copy.deepcopy(loss_train))
         acc_locals_train.append(copy.deepcopy(acc_train))
@@ -400,6 +419,7 @@ for iter in range(epochs):
         loss_test, acc_test = local.evaluate(net = copy.deepcopy(net_glob).to(device))
         loss_locals_test.append(copy.deepcopy(loss_test))
         acc_locals_test.append(copy.deepcopy(acc_test))
+    TcArray.append(tempClientArray)
         
         
     
@@ -429,6 +449,8 @@ for iter in range(epochs):
     print('Train: Round {:3d}, Avg Accuracy {:.3f} | Avg Loss {:.3f}'.format(iter, acc_avg_train, loss_avg_train))
     print('Test:  Round {:3d}, Avg Accuracy {:.3f} | Avg Loss {:.3f}'.format(iter, acc_avg_test, loss_avg_test))
     print('-------------------------------------------------------------------------')
+    #Global time
+    TsArray.append((time.time() - start_time)/60)
    
 
 #===================================================================================     
@@ -438,7 +460,7 @@ print("Training and Evaluation completed!")
 #===============================================================================
 # Save output data to .excel file (we use for comparision plots)
 round_process = [i for i in range(1, len(acc_train_collect)+1)]
-df = DataFrame({'round': round_process,'acc_train':acc_train_collect, 'acc_test':acc_test_collect})     
+df = DataFrame({'round': round_process,'acc_train':acc_train_collect, 'acc_test':acc_test_collect, 'Gobal E Time (m)':TsArray, 'Local e Time per Client (m)': TcArray})     
 file_name = f"{program}_{num_users}.xlsx"
 df.to_excel(file_name, sheet_name= "v1_test", index = False)     
 

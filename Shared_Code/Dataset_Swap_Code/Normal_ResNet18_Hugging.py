@@ -2,8 +2,16 @@
 # Centralized (normal) learning: ResNet18 on HAM10000
 # Single program
 # ====================================================
-from Dictionary_Types.dic_fmnist10 import data_name, num_channels, img_type
-from settings import ResNetType, num_users, epochs, local_ep, frac, lr
+from settings import ResNetType, num_users, epochs, local_ep, frac, lr, training_sorce
+
+if training_sorce=="mnist10":
+    from Dictionary_Types.dic_mnist10 import data_name, num_channels, img_type
+elif training_sorce=="fmnist10":
+    from Dictionary_Types.dic_fmnist10 import data_name, num_channels, img_type
+elif training_sorce=="cifar10":
+    from Dictionary_Types.dic_cifar10 import data_name, num_channels, img_type
+elif training_sorce=="cifar100":  
+    from Dictionary_Types.dic_cifar100 import data_name, num_channels, img_type
 
 import os
 import torch
@@ -28,6 +36,8 @@ from datetime import date, datetime
 today = f"{date.today()}".replace("-","_")
 timeS=f"{datetime.now().strftime('%H:%M:%S')}".replace(":","_")
 program=os.path.basename(__file__)+"_"+today+"_"+timeS+data_name
+TsArray=[]
+TcArray=[]
 
 SEED = 1234
 random.seed(SEED)
@@ -328,8 +338,8 @@ for epoch in range(epochs):
     prRed(f'Train => Epoch: {epoch} \t Acc: {train_acc*100:05.2f}% \t Loss: {train_loss:.3f}')
     prGreen(f'Test =>               \t Acc: {test_acc*100:05.2f}% \t Loss: {test_loss:.3f}')
   
-elapsed = (time.time() - start_time)/60
-print(f'Total Training Time: {elapsed:.2f} min')
+    TsArray.append((time.time() - start_time)/60)
+
 
 #===================================================================================     
 
@@ -338,7 +348,7 @@ print("Training and Evaluation completed!")
 #===============================================================================
 # Save output data to .excel file (we use for comparision plots)
 round_process = [i for i in range(1, len(acc_train_collect)+1)]
-df = DataFrame({'round': round_process,'acc_train':acc_train_collect, 'acc_test':acc_test_collect})     
+df = DataFrame({'round': round_process,'acc_train':acc_train_collect, 'acc_test':acc_test_collect, 'Gobal E Time (m)':TsArray})     
 file_name = program+".xlsx"    
 df.to_excel(file_name, sheet_name= "v1_test", index = False)     
 

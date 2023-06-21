@@ -67,9 +67,6 @@ def mnist():
         fineLables=dataset["train"][i]["label"]
         file1.write(f"img_tr_{i},{fineLables}\n")
         
-    #img.resize((64, 64))
-    file1 = open(f"MyFile({name}).csv", "w")
-    file1.write("image_id, fine_label\n")
     for i in range(len(dataset["test"])):
         img=dataset["test"][i]["image"]
         file_name=f"{path1}\\img_tr_{i}"
@@ -93,9 +90,6 @@ def fashion_mnist():
         fineLables=dataset["train"][i]["label"]
         file1.write(f"img_tr_{i},{fineLables}\n")
         
-    #img.resize((64, 64))
-    file1 = open(f"MyFile({name}).csv", "w")
-    file1.write("image_id, fine_label\n")
     for i in range(len(dataset["test"])):
         img=dataset["test"][i]["image"]
         file_name=f"{path1}\\img_tr_{i}"
@@ -106,9 +100,9 @@ def fashion_mnist():
     ##################################################
 
 print("Running fashion_mnist")
-fashion_mnist()
+#fashion_mnist()
 print("Running mnist")
-#mnist()
+mnist()
 print("Running cifar10")
 #cifar10()
 print("Running cifar100")

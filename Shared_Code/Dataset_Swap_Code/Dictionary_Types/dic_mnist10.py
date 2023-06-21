@@ -1,4 +1,5 @@
 data_name="mnist"
+num_channels=1
 img_type={
     0: "0",
 
