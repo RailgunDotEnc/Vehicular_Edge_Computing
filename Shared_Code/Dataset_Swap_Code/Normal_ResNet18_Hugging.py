@@ -349,7 +349,7 @@ print("Training and Evaluation completed!")
 # Save output data to .excel file (we use for comparision plots)
 round_process = [i for i in range(1, len(acc_train_collect)+1)]
 df = DataFrame({'round': round_process,'acc_train':acc_train_collect, 'acc_test':acc_test_collect, 'Gobal E Time (m)':TsArray})     
-file_name = program+".xlsx"    
+file_name = "Results\\"+program+".xlsx"    
 df.to_excel(file_name, sheet_name= "v1_test", index = False)     
 
 #=============================================================================
