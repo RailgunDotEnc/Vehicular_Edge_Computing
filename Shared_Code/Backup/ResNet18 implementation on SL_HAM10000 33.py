@@ -1,14 +1,3 @@
-#=============================================================================
-# Split learning: ResNet18 on HAM10000
-# HAM10000 dataset: Tschandl, P.: The HAM10000 dataset, a large collection of multi-source dermatoscopic images of common pigmented skin lesions (2018), doi:10.7910/DVN/DBW86T
-
-# We have three versions of our implementations
-# Version1: without using socket and no DP+PixelDP
-# Version2: with using socket but no DP+PixelDP
-# Version3: without using socket but with DP+PixelDP
-
-# This program is Version1: Single program simulation 
-# ============================================================================
 from settings import ResNetType, num_users, epochs, local_ep, frac, lr, training_sorce
 
 if training_sorce=="mnist10":
@@ -45,8 +34,6 @@ import matplotlib.pyplot as plt
 import copy
 
 from datetime import date, datetime
-
-print("#############Setting up#############")
 today = f"{date.today()}".replace("-","_")
 timeS=f"{datetime.now().strftime('%H:%M:%S')}".replace(":","_")
 program=os.path.basename(__file__)+"_"+today+"_"+timeS+data_name
@@ -64,29 +51,65 @@ if torch.cuda.is_available():
 
 #===================================================================  
 print(f"---------{program}----------")              # this is to identify the program in the slurm outputs files
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-print(device)
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # To print in color -------test/train of the client side
 def prRed(skk): print("\033[91m {}\033[00m" .format(skk)) 
 def prGreen(skk): print("\033[92m {}\033[00m" .format(skk))     
 
-#===================================================================  
-
+#===================================================================
 
 #=====================================================================================================
 #                           Client-side Model definition
 #=====================================================================================================
 # Model at client side
-class ResNet18_client_side(nn.Module):
-    def __init__(self):
-        super(ResNet18_client_side, self).__init__()
+class block(nn.Module):
+    def __init__(self, in_channels, out_channels, identity_downsample = None, stride=1):
+        super(block, self).__init__()
+        self.expansion = 1
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=1,stride=1,padding=0)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=1,stride=stride,padding=1)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+        self.conv3 = nn.Conv2d(out_channels, out_channels * self.expansion, kernel_size=1, stride =1, padding=0)
+        self.bn3 = nn.BatchNorm2d((out_channels*self.expansion))
+        self.relu = nn.ReLU()
+        self.identity_downsample = identity_downsample
+        
+    def forward(self, x):
+        identity = x
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = self.relu(x)
+        x = self.conv3(x)
+        x = self.bn3(x)
+        
+        if self.identity_downsample is not None:
+            identity = self.identity_downsample(identity)
+
+
+        #x += identity
+        x = self.relu(x)
+        return x
+        
+class ResNetClient(nn.Module):
+    def __init__(self, block, layers, image_channels):
+        super(ResNetClient, self).__init__()
+        self.in_channels = 64
+        self.conv1 = nn.Conv2d(image_channels, 64, kernel_size=7, stride=2, padding=3)
+        self.bn1 = nn.BatchNorm2d(64)
+        self.relu = nn.ReLU()
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+
         self.layer1 = nn.Sequential (
                 nn.Conv2d(num_channels, 64, kernel_size = 7, stride = 2, padding = 3, bias = False),
                 nn.BatchNorm2d(64),
                 nn.ReLU (inplace = True),
-                nn.MaxPool2d(kernel_size = 3, stride = 2, padding =1),
+                nn.MaxPool2d(kernel_size = 7, stride = 2, padding =1),
             )
         self.layer2 = nn.Sequential  (
                 nn.Conv2d(64, 64, kernel_size = 3, stride = 1, padding = 1, bias = False),
@@ -95,6 +118,13 @@ class ResNet18_client_side(nn.Module):
                 nn.Conv2d(64, 64, kernel_size = 3, stride = 1, padding = 1),
                 nn.BatchNorm2d(64),              
             )
+        self.layer3 = nn.Sequential (
+                nn.Conv2d(64, 64, kernel_size = 3, stride = 2, padding = 1),
+                nn.BatchNorm2d(64),
+                nn.ReLU (inplace = True),
+                nn.Conv2d(64, 64, kernel_size = 3, stride = 2, padding = 1),
+                nn.BatchNorm2d(64),       
+                )   
         
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -105,118 +135,101 @@ class ResNet18_client_side(nn.Module):
                 m.bias.data.zero_()
         
         
-    def forward(self, x):
-        resudial1 = F.relu(self.layer1(x))
-        out1 = self.layer2(resudial1)
-        out1 = out1 + resudial1 # adding the resudial inputs -- downsampling not required in this layer
-        resudial2 = F.relu(out1)
-        return resudial2
- 
- 
-           
-print("#############Assign net_glob_client#############")
-net_glob_client = ResNet18_client_side()
+    def forward(self,x):
+        #x = self.conv1(x)
+        #x = self.bn1(x)
+        x = self.layer1(x)
+        x = self.relu(x)
+        x = self.layer2(x)
+        x = self.relu(x)
+        x = self.layer3(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+        
+        #x = self.layer1(x)
+        #x = self.layer2(x)
+
+        return x
+
+        
+    def _make_layer(self, block, num_residual_blocks, out_channels, stride):
+        identity_downsample = None
+        layers = []
+        
+        if stride != 1 or self.in_channels != out_channels:
+            identity_downsample = nn.Sequential(nn.Conv2d(self.in_channels, out_channels, kernel_size=1, stride = stride), nn.BatchNorm2d(out_channels))
+            
+        layers.append(block(self.in_channels, out_channels, identity_downsample, stride))
+        self.in_channels = out_channels
+        
+        for i in range(num_residual_blocks - 1):
+            layers.append(block(self.in_channels, out_channels))
+            
+        return nn.Sequential(*layers)
+    
+net_glob_client = ResNetClient(block, [2, 2, 2, 2], image_channels=3)
+client_in_channels = net_glob_client.in_channels
 if torch.cuda.device_count() > 1:
     print("We use",torch.cuda.device_count(), "GPUs")
     net_glob_client = nn.DataParallel(net_glob_client)   # to use the multiple GPUs; later we can change this to CPUs only 
 
 net_glob_client.to(device)
-print(net_glob_client)     
+print(net_glob_client)  
 
 
-#=====================================================================================================
-#                           Server-side Model definition
-#=====================================================================================================
-# Model at server side
-class Baseblock(nn.Module):
-    expansion = 1
-    def __init__(self, input_planes, planes, stride = 1, dim_change = None):
-        super(Baseblock, self).__init__()
-        self.conv1 = nn.Conv2d(input_planes, planes, stride =  stride, kernel_size = 3, padding = 1)
-        self.bn1 = nn.BatchNorm2d(planes)
-        self.conv2 = nn.Conv2d(planes, planes, stride = 1, kernel_size = 3, padding = 1)
-        self.bn2 = nn.BatchNorm2d(planes)
-        self.dim_change = dim_change
-        
-    def forward(self, x):
-        res = x
-        output = F.relu(self.bn1(self.conv1(x)))
-        output = self.bn2(self.conv2(output))
-        
-        if self.dim_change is not None:
-            res =self.dim_change(res)
-            
-        output += res
-        output = F.relu(output)
-        
-        return output
-
-
-class ResNet18_server_side(nn.Module):
-    def __init__(self, block, num_layers, classes):
-        super(ResNet18_server_side, self).__init__()
-        self.input_planes = 64
-        self.layer3 = nn.Sequential (
-                nn.Conv2d(64, 64, kernel_size = 3, stride = 1, padding = 1),
-                nn.BatchNorm2d(64),
-                nn.ReLU (inplace = True),
-                nn.Conv2d(64, 64, kernel_size = 3, stride = 1, padding = 1),
-                nn.BatchNorm2d(64),       
-                )   
-        
-        self.layer4 = self._layer(block, 128, num_layers[0], stride = 2)
-        self.layer5 = self._layer(block, 256, num_layers[1], stride = 2)
-        self.layer6 = self._layer(block, 512, num_layers[2], stride = 2)
-        self. averagePool = nn.AvgPool2d(kernel_size = 7, stride = 1)
-        self.fc = nn.Linear(512 * block.expansion, classes)
-        
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
-            elif isinstance(m, nn.BatchNorm2d):
-                m.weight.data.fill_(1)
-                m.bias.data.zero_()
-        
-        
-    def _layer(self, block, planes, num_layers, stride = 2):
-        dim_change = None
-        if stride != 1 or planes != self.input_planes * block.expansion:
-            dim_change = nn.Sequential(nn.Conv2d(self.input_planes, planes*block.expansion, kernel_size = 1, stride = stride),
-                                       nn.BatchNorm2d(planes*block.expansion))
-        netLayers = []
-        netLayers.append(block(self.input_planes, planes, stride = stride, dim_change = dim_change))
-        self.input_planes = planes * block.expansion
-        for i in range(1, num_layers):
-            netLayers.append(block(self.input_planes, planes))
-            self.input_planes = planes * block.expansion
-            
-        return nn.Sequential(*netLayers)
-        
     
-    def forward(self, x):
-        out2 = self.layer3(x)
-        out2 = out2 + x          # adding the resudial inputs -- downsampling not required in this layer
-        x3 = F.relu(out2)
-        
-        x4 = self. layer4(x3)
-        x5 = self.layer5(x4)
-        x6 = self.layer6(x5)
-        
-        x7 = F.avg_pool2d(x6, 2)
-        x8 = x7.view(x7.size(0), -1) 
-        y_hat =self.fc(x8)
-        
-        return y_hat
 
-print("#############Assign net_glob_server#############")
-net_glob_server = ResNet18_server_side(Baseblock, ResNetType, len(img_type)) #7 is my numbr of classes
+class ResNetServer(nn.Module):
+    def __init__(self, block, layers, in_channels, num_classes):
+        super(ResNetServer, self).__init__()
+        self.in_channels = in_channels
+        
+        
+        self.layer4 = self._make_layer(block, layers[0], out_channels = 128, stride = 2)
+        self.layer5 = self._make_layer(block, layers[1], out_channels = 256, stride = 2)
+        self.layer6 = self._make_layer(block, layers[2], out_channels = 512, stride =2)
+
+
+        self.avgpool = nn.AdaptiveAvgPool2d((1,1))
+        self.fc = nn.Linear(512, num_classes)
+        
+        
+    def forward(self,x):
+        x = self.layer4(x)
+        x = self.layer5(x)
+        x = self.layer6(x)
+        
+        x = self.avgpool(x)
+        x = x.reshape(x.shape[0], -1)
+        x = self.fc(x)
+        return x
+
+        
+    def _make_layer(self, block, num_residual_blocks, out_channels, stride):
+        identity_downsample = None
+        layers = []
+        
+        if stride != 1 or self.in_channels != out_channels * 4:
+            identity_downsample = nn.Sequential(nn.Conv2d(self.in_channels, out_channels, kernel_size=1, stride = stride), nn.BatchNorm2d(out_channels))
+            
+        layers.append(block(self.in_channels, out_channels, identity_downsample, stride))
+        self.in_channels = out_channels
+        
+        for i in range(num_residual_blocks - 1):
+            layers.append(block(self.in_channels, out_channels))
+            
+        return nn.Sequential(*layers)
+    
+net_glob_server = ResNetServer(block, ResNetType, client_in_channels, len(img_type)) 
 if torch.cuda.device_count() > 1:
     print("We use",torch.cuda.device_count(), "GPUs")
     net_glob_server = nn.DataParallel(net_glob_server)   # to use the multiple GPUs 
 
 net_glob_server.to(device)
 print(net_glob_server)      
+    
+    
+
 
 #===================================================================================
 # For Server Side Loss and Accuracy 
@@ -406,7 +419,7 @@ def evaluate_server(fx_client, y, idx, len_batch, ell):
                 print(' Test: Round {:3d}, Avg Accuracy {:.3f} | Avg Loss {:.3f}'.format(ell, acc_avg_all_user, loss_avg_all_user))
                 print("==========================================================")
          
-    return 
+    return  
 
 #==============================================================================================================
 #                                       Clients Side Program
@@ -477,7 +490,7 @@ class Client(object):
             
             #prRed('Client{} Test => Epoch: {}'.format(self.idx, ell))
             
-        return          
+        return         
 #=====================================================================================================
 # dataset_iid() will create a dictionary to collect the indices of the data samples randomly for each client
 # IID HAM10000 datasets will be created based on this
@@ -488,13 +501,13 @@ def dataset_iid(dataset, num_users):
     for i in range(num_users):
         dict_users[i] = set(np.random.choice(all_idxs, num_items, replace = False))
         all_idxs = list(set(all_idxs) - dict_users[i])
-    return dict_users    
+    return dict_users   
             
 #=============================================================================
 #                         Data loading 
 #============================================================================= 
-print("#############Set up Dataset#############")
 df = pd.read_csv(f'data/MyFile({data_name}).csv')
+print(df.head())
 
 
 
@@ -507,6 +520,8 @@ imageid_path = {os.path.splitext(os.path.basename(x))[0]: x
 df['path'] = df['image_id'].map(imageid_path.get)
 df['cell_type'] = df[' fine_label'].map(img_type.get)
 df['target'] = pd.Categorical(df['cell_type']).codes
+print(df['cell_type'].value_counts())
+print(df['target'].value_counts())
 
 #==============================================================
 # Custom dataset prepration in Pytorch format
@@ -569,7 +584,6 @@ dict_users_test = dataset_iid(dataset_test, num_users)
 
 #net_glob_client.train()
 # this epoch is global epoch, also known as rounds
-print("#############Start AI training#############")
 start_time = time.time() 
 for iter in range(epochs):
     m = max(int(frac * num_users), 1)
@@ -603,19 +617,4 @@ df.to_excel(file_name, sheet_name= "v1_test", index = False)
 #=============================================================================
 #                         Program Completed
 #============================================================================= 
-
-
-
- 
-
-
-
-
-
-
-
-
-
-
-
-
+   

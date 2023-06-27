@@ -95,6 +95,13 @@ class ResNet18_client_side(nn.Module):
                 nn.Conv2d(64, 64, kernel_size = 3, stride = 1, padding = 1),
                 nn.BatchNorm2d(64),              
             )
+        self.layer3 = nn.Sequential (
+                nn.Conv2d(64, 64, kernel_size = 3, stride = 1, padding = 1),
+                nn.BatchNorm2d(64),
+                nn.ReLU (inplace = True),
+                nn.Conv2d(64, 64, kernel_size = 3, stride = 1, padding = 1),
+                nn.BatchNorm2d(64),       
+                )  
         
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -106,11 +113,17 @@ class ResNet18_client_side(nn.Module):
         
         
     def forward(self, x):
+        global x3
         resudial1 = F.relu(self.layer1(x))
         out1 = self.layer2(resudial1)
         out1 = out1 + resudial1 # adding the resudial inputs -- downsampling not required in this layer
         resudial2 = F.relu(out1)
-        return resudial2
+        
+        out2 = self.layer3(resudial2)
+        out2 = out2 + resudial2          # adding the resudial inputs -- downsampling not required in this layer
+        x3 = F.relu(out2)
+        
+        return x3
  
  
            
@@ -163,7 +176,7 @@ class ResNet18_server_side(nn.Module):
                 nn.Conv2d(64, 64, kernel_size = 3, stride = 1, padding = 1),
                 nn.BatchNorm2d(64),       
                 )   
-        
+
         self.layer4 = self._layer(block, 128, num_layers[0], stride = 2)
         self.layer5 = self._layer(block, 256, num_layers[1], stride = 2)
         self.layer6 = self._layer(block, 512, num_layers[2], stride = 2)
@@ -194,11 +207,8 @@ class ResNet18_server_side(nn.Module):
         return nn.Sequential(*netLayers)
         
     
-    def forward(self, x):
-        out2 = self.layer3(x)
-        out2 = out2 + x          # adding the resudial inputs -- downsampling not required in this layer
-        x3 = F.relu(out2)
-        
+    def forward(self, x3):     
+        global x4
         x4 = self. layer4(x3)
         x5 = self.layer5(x4)
         x6 = self.layer6(x5)

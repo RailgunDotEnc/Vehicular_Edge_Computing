@@ -100,7 +100,7 @@ def fashion_mnist():
     ##################################################
 
 print("Running fashion_mnist")
-#fashion_mnist()
+fashion_mnist()
 print("Running mnist")
 mnist()
 print("Running cifar10")
