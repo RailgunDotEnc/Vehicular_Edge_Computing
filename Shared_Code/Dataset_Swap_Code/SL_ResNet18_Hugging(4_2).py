@@ -54,6 +54,7 @@ TsArray=[]
 TcArray=[]
 
 SEED = 1234
+input_planes = 64
 random.seed(SEED)
 np.random.seed(SEED)
 torch.manual_seed(SEED)
@@ -73,61 +74,6 @@ def prRed(skk): print("\033[91m {}\033[00m" .format(skk))
 def prGreen(skk): print("\033[92m {}\033[00m" .format(skk))     
 
 #===================================================================  
-
-
-#=====================================================================================================
-#                           Client-side Model definition
-#=====================================================================================================
-# Model at client side
-class ResNet18_client_side(nn.Module):
-    def __init__(self):
-        super(ResNet18_client_side, self).__init__()
-        self.layer1 = nn.Sequential (
-                nn.Conv2d(num_channels, 64, kernel_size = 7, stride = 2, padding = 3, bias = False),
-                nn.BatchNorm2d(64),
-                nn.ReLU (inplace = True),
-                nn.MaxPool2d(kernel_size = 3, stride = 2, padding =1),
-            )
-        self.layer2 = nn.Sequential  (
-                nn.Conv2d(64, 64, kernel_size = 3, stride = 1, padding = 1, bias = False),
-                nn.BatchNorm2d(64),
-                nn.ReLU (inplace = True),
-                nn.Conv2d(64, 64, kernel_size = 3, stride = 1, padding = 1),
-                nn.BatchNorm2d(64),              
-            )
-        
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
-            elif isinstance(m, nn.BatchNorm2d):
-                m.weight.data.fill_(1)
-                m.bias.data.zero_()
-        
-        
-    def forward(self, x):
-        resudial1 = F.relu(self.layer1(x))
-        out1 = self.layer2(resudial1)
-        out1 = out1 + resudial1 # adding the resudial inputs -- downsampling not required in this layer
-        resudial2 = F.relu(out1)
-        return resudial2
- 
- 
-           
-print("#############Assign net_glob_client#############")
-net_glob_client = ResNet18_client_side()
-if torch.cuda.device_count() > 1:
-    print("We use",torch.cuda.device_count(), "GPUs")
-    net_glob_client = nn.DataParallel(net_glob_client)   # to use the multiple GPUs; later we can change this to CPUs only 
-
-net_glob_client.to(device)
-print(net_glob_client)     
-
-
-#=====================================================================================================
-#                           Server-side Model definition
-#=====================================================================================================
-# Model at server side
 class Baseblock(nn.Module):
     expansion = 1
     def __init__(self, input_planes, planes, stride = 1, dim_change = None):
@@ -151,20 +97,97 @@ class Baseblock(nn.Module):
         
         return output
 
-
-class ResNet18_server_side(nn.Module):
-    def __init__(self, block, num_layers, classes):
-        super(ResNet18_server_side, self).__init__()
-        self.input_planes = 64
+#=====================================================================================================
+#                           Client-side Model definition
+#=====================================================================================================
+# Model at client side
+class ResNet18_client_side(nn.Module):
+    def __init__(self):
+        global input_planes
+        input_planes = 64
+        super(ResNet18_client_side, self).__init__()
+        self.layer1 = nn.Sequential (
+                nn.Conv2d(num_channels, 64, kernel_size = 7, stride = 2, padding = 3, bias = False),
+                nn.BatchNorm2d(64),
+                nn.ReLU (inplace = True),
+                nn.MaxPool2d(kernel_size = 3, stride = 2, padding =1),
+            )
+        self.layer2 = nn.Sequential  (
+                nn.Conv2d(64, 64, kernel_size = 3, stride = 1, padding = 1, bias = False),
+                nn.BatchNorm2d(64),
+                nn.ReLU (inplace = True),
+                nn.Conv2d(64, 64, kernel_size = 3, stride = 1, padding = 1),
+                nn.BatchNorm2d(64),              
+            )
         self.layer3 = nn.Sequential (
                 nn.Conv2d(64, 64, kernel_size = 3, stride = 1, padding = 1),
                 nn.BatchNorm2d(64),
                 nn.ReLU (inplace = True),
                 nn.Conv2d(64, 64, kernel_size = 3, stride = 1, padding = 1),
                 nn.BatchNorm2d(64),       
-                )   
+                )  
         
-        self.layer4 = self._layer(block, 128, num_layers[0], stride = 2)
+        self.layer4 = self._layer(Baseblock, 128, ResNetType[0], stride = 2)
+        
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+                
+    def _layer(self, block, planes, num_layers, stride = 2):
+        global input_planes
+        dim_change = None
+        if stride != 1 or planes != input_planes * block.expansion:
+            dim_change = nn.Sequential(nn.Conv2d(input_planes, planes*block.expansion, kernel_size = 1, stride = stride),
+                                       nn.BatchNorm2d(planes*block.expansion))
+        netLayers = []
+        netLayers.append(block(input_planes, planes, stride = stride, dim_change = dim_change))
+        input_planes = planes * block.expansion
+        for i in range(1, num_layers):
+            netLayers.append(block(input_planes, planes))
+            input_planes = planes * block.expansion
+        return nn.Sequential(*netLayers)
+        
+        
+    def forward(self, x):
+        global x3
+        resudial1 = F.relu(self.layer1(x))
+        out1 = self.layer2(resudial1)
+        out1 = out1 + resudial1 # adding the resudial inputs -- downsampling not required in this layer
+        resudial2 = F.relu(out1)
+        out2 = self.layer3(resudial2)
+        out2 = out2 + resudial2          # adding the resudial inputs -- downsampling not required in this layer
+        x3 = F.relu(out2)
+        x4 = self.layer4(x3)
+        return x4
+ 
+ 
+           
+print("#############Assign net_glob_client#############")
+net_glob_client = ResNet18_client_side()
+if torch.cuda.device_count() > 1:
+    print("We use",torch.cuda.device_count(), "GPUs")
+    net_glob_client = nn.DataParallel(net_glob_client)   # to use the multiple GPUs; later we can change this to CPUs only 
+
+net_glob_client.to(device)
+print(net_glob_client)     
+
+
+#=====================================================================================================
+#                           Server-side Model definition
+#=====================================================================================================
+# Model at server side
+
+
+class ResNet18_server_side(nn.Module):
+    def __init__(self, block, num_layers, classes):
+        global input_planes
+        super(ResNet18_server_side, self).__init__()
+        self.input_planes = input_planes
+        
         self.layer5 = self._layer(block, 256, num_layers[1], stride = 2)
         self.layer6 = self._layer(block, 512, num_layers[2], stride = 2)
         self. averagePool = nn.AvgPool2d(kernel_size = 7, stride = 1)
@@ -186,6 +209,7 @@ class ResNet18_server_side(nn.Module):
                                        nn.BatchNorm2d(planes*block.expansion))
         netLayers = []
         netLayers.append(block(self.input_planes, planes, stride = stride, dim_change = dim_change))
+
         self.input_planes = planes * block.expansion
         for i in range(1, num_layers):
             netLayers.append(block(self.input_planes, planes))
@@ -194,12 +218,7 @@ class ResNet18_server_side(nn.Module):
         return nn.Sequential(*netLayers)
         
     
-    def forward(self, x):
-        out2 = self.layer3(x)
-        out2 = out2 + x          # adding the resudial inputs -- downsampling not required in this layer
-        x3 = F.relu(out2)
-        
-        x4 = self. layer4(x3)
+    def forward(self, x4):  
         x5 = self.layer5(x4)
         x6 = self.layer6(x5)
         

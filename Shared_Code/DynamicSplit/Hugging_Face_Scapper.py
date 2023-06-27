@@ -1,5 +1,7 @@
 from datasets import load_dataset
 import os
+import sys
+
 
 def setup(n):
     name=n
@@ -99,14 +101,32 @@ def fashion_mnist():
         file1.write(f"img_tr_{i},{fineLables}\n")
     ##################################################
 
-print("Running fashion_mnist")
-fashion_mnist()
-print("Running mnist")
-mnist()
-print("Running cifar10")
-#cifar10()
-print("Running cifar100")
-#cifar100()
+def download(dataset):
+    if "fmnist"==dataset:
+        print("Downloading fashion_mnist")
+        fashion_mnist()
+    elif "mnist"==dataset:
+        print("Downloading mnist")
+        mnist()
+    elif "cifar10"==dataset:
+        print("Downloading cifar10")
+        cifar10()
+    elif "cifar100"==dataset:
+        print("Downloading cifar100")
+        cifar100()
+    else:
+        print("Dataset not found. Checkout README.txt")
+        return
+    print(dataset,"complete\n")
 
+def main(arguments):
+    if len(arguments)<=1:
+        print("Missing arguments. Checkout README.txt")
+        return
+    for i in range(len(arguments)):
+        if i!=0:
+            download(arguments[i])
+    print("All downloads Complete!")
 
+main(sys.argv)
 
