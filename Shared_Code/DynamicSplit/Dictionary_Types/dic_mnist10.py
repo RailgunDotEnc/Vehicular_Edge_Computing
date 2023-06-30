@@ -1,6 +1,6 @@
-data_name="mnist"
-num_channels=1
-img_type={
+DATA_NAME="mnist"
+NUM_CHANNELS=1
+IMG_TYPE={
     0: "0",
 
 1: "1",

@@ -1,6 +1,6 @@
-data_name="cifar100"
-num_channels=3
-img_type={
+DATA_NAME="cifar100"
+NUM_CHANNELS=3
+IMG_TYPE={
     0: "apple",
 
 1: "aquarium_fish",

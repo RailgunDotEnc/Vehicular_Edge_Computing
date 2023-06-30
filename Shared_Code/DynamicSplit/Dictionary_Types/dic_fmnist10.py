@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-data_name="fashion_mnist"
-num_channels=1
-img_type={
+DATA_NAME="fashion_mnist"
+NUM_CHANNELS=1
+IMG_TYPE={
 0:	"T-shirt/top",
 1:	"Trouser",
 2:	"Pullover",

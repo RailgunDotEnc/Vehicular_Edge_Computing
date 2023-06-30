@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-num_channels=3
-data_name="cifar10"
-img_type={
+NUM_CHANNELS=3
+DATA_NAME="cifar10"
+IMG_TYPE={
 0:	"airplane",
 1:	"automobile",
 2:	"bird",

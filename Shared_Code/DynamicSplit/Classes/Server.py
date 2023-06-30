@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from settings import lr, num_users
+from settings import LR, NUM_USERS
 
 #====================================================================================================
 #                                  Server Side Program
@@ -48,10 +48,10 @@ class Server(object):
         
         
     # Server-side function associated with Training                             #Here
-    def train_server(self,fx_client, y, l_epoch_count, l_epoch, idx, len_batch,net_glob_server,device):
+    def train_server(self,fx_client, y, l_epoch_count, l_epoch, idx, len_batch,net_glob_server,device,LayerSplit,volly):
         
         net_glob_server.train()
-        optimizer_server = torch.optim.Adam(net_glob_server.parameters(), lr = lr)
+        optimizer_server = torch.optim.Adam(net_glob_server.parameters(), lr = LR)
     
         
         # train and update
@@ -61,7 +61,7 @@ class Server(object):
         y = y.to(device)
         
         #---------forward prop-------------
-        fx_server = net_glob_server(fx_client)
+        fx_server = net_glob_server(fx_client,LayerSplit,volly)
         
         # calculate loss
         loss = self.criterion(fx_server, y)
@@ -112,7 +112,7 @@ class Server(object):
                     #print(self.idx_collect)
             
             # This is to check if all users are served for one round --------------------
-            if len(self.idx_collect) == num_users:
+            if len(self.idx_collect) == NUM_USERS:
                 self.fed_check = True                                                  # for evaluate_server function  - to check fed check has hitted
                 # all users served for one round ------------------------- output print and update is done in evaluate_server()
                 # for nicer display 
@@ -132,7 +132,7 @@ class Server(object):
         return dfx_client
         
     # Server-side functions associated with Testing
-    def evaluate_server(self,fx_client, y, idx, len_batch, ell,net_glob_server,device):
+    def evaluate_server(self,fx_client, y, idx, len_batch, ell,net_glob_server,device,LayerSplit,volly):
         
         net_glob_server.eval()
       
@@ -140,7 +140,7 @@ class Server(object):
             fx_client = fx_client.to(device)
             y = y.to(device) 
             #---------forward prop-------------
-            fx_server = net_glob_server(fx_client)
+            fx_server = net_glob_server(fx_client,LayerSplit,volly)
             
             # calculate loss
             loss = self.criterion(fx_server, y)
