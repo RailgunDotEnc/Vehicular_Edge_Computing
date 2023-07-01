@@ -31,7 +31,7 @@ class ResNet18_client_side(nn.Module):
         self.layer4 = self._layer(block, 128, num_layers[0],64, stride = 2)
         self.layer5 =self._layer(block, 256, num_layers[1],128, stride = 2)
         
-        self.layers=[self.layer1,self.layer2,self.layer3,self.layer4]
+        self.layers=[self.layer1,self.layer2,self.layer3,self.layer4,None,None]
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -128,9 +128,10 @@ class ResNet18_client_side(nn.Module):
         print("Layer(s) removed from Client")
         print(f"{self.Layer_Count[0]} => {Layer_Count[0]}")
         diff=self.Layer_Count[0]-Layer_Count[0]
-        volly=[]
+        volly=[None,None,None,None,None,None]
         for i in range(diff):
-            volly.append(self.layers.pop((len(self.layers)-diff)+i))
+            volly[self.Layer_Count[0]-diff+i]=self.layers[self.Layer_Count[0]-diff+i]
+            self.layers[(len(self.layers)-diff)+i]=None
         self.Layer_Count=Layer_Count
         return volly
         

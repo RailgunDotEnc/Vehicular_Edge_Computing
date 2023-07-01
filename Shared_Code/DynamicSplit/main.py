@@ -32,7 +32,17 @@ def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_te
     # this epoch is global epoch, also known as rounds
     start_time = time.time() 
     layersplit=[4,2]
+    epochSplit=(int(EPOCHS/3),int(EPOCHS/3*2))
     for iter in range(EPOCHS):
+        print("Global epoch:",iter)
+        print(epochSplit,"/",iter>epochSplit[0],"/",iter<epochSplit[1],"/", iter>=epochSplit[1])
+        if iter>=epochSplit[0] and iter<epochSplit[1]:
+            print("Layer change")
+            layersplit=[3,3]
+        elif iter>=epochSplit[1]:
+        #if True:
+            print("Layer change")
+            layersplit=[2,4]
         m = max(int(FRAC * NUM_USERS), 1)
         idxs_users = np.random.choice(range(NUM_USERS), m, replace = False)
         tempClientArray=[]
@@ -41,7 +51,7 @@ def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_te
             local = Client.Client(Global,LOCAL_EP,net_glob_client, idx, LR, device,layersplit, dataset_train = dataset_train, dataset_test = dataset_test, idxs = dict_users[idx], idxs_test = dict_users_test[idx])
             # Training ------------------
             w_client,tempArray = local.train(copy.deepcopy(net_glob_client).to(device),net_glob_server,device)
-                  
+        
             # Testing -------------------
             local.evaluate(copy.deepcopy(net_glob_client).to(device),iter,net_glob_server,device)
             tempClientArray.append(tempArray)
@@ -50,11 +60,7 @@ def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_te
         TcArray.append(tempClientArray)
         TsArray.append((time.time() - start_time)/60)
         
-        if iter>3 and iter<8:
-            layersplit=[3,3]
-        else:
-            layersplit=[2,4]
-
+        
 
     return TcArray,TsArray
 

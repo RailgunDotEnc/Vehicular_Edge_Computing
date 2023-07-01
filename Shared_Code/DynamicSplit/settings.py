@@ -1,7 +1,7 @@
 RESNETTYPE=[2,2,2,2] #18
 NUM_USERS = 1
-EPOCHS = 10
-LOCAL_EP=2
+EPOCHS = 100
+LOCAL_EP=1
 FRAC = 1
 LR = 0.0001
 #mnist10, fmnist10, cifar10, cifar100

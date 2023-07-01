@@ -29,7 +29,7 @@ class ResNet18_server_side(nn.Module):
         self.layer5 = self._layer(block, 256, num_layers[1],128, stride = 2)
         self.layer6 = self._layer(block, 512, num_layers[2],256, stride = 2)
         
-        self.layers=[self.layer5,self.layer6]
+        self.layers=[None,None,None,None,self.layer5,self.layer6]
         
         self. averagePool = nn.AvgPool2d(kernel_size = 7, stride = 1)
         self.fc = nn.Linear(512 * block.expansion, classes)
@@ -57,13 +57,13 @@ class ResNet18_server_side(nn.Module):
         return nn.Sequential(*netLayers)
     
     def forward2_4(self,x):
-        out2 = self.layers[0](x)
+        out2 = self.layers[2](x)
         out2 = out2 + x          # adding the resudial inputs -- downsampling not required in this layer
         x3 = F.relu(out2)
         
-        x4 = self. layers[1](x3)
-        x5 = self.layers[2](x4)
-        x6 = self.layers[3](x5)
+        x4 = self. layers[3](x3)
+        x5 = self.layers[4](x4)
+        x6 = self.layers[5](x5)
         
         x7 = F.avg_pool2d(x6, 2)
         x8 = x7.view(x7.size(0), -1) 
@@ -72,28 +72,29 @@ class ResNet18_server_side(nn.Module):
         return y_hat
     
     def forward3_3(self,x3):
-        x4 = self.layers[0](x3)
-        x5 = self.layers[1](x4)
-        x6 = self.layers[2](x5)
+        x4 = self.layers[3](x3)
+        x5 = self.layers[4](x4)
+        x6 = self.layers[5](x5)
         x7 = F.avg_pool2d(x6, 2)
         x8 = x7.view(x7.size(0), -1) 
         y_hat =self.fc(x8)
         return y_hat
     
     def forward4_2(self,x4):
-        x5 = self.layers[0](x4)
-        x6 = self.layers[1](x5)
+        x5 = self.layers[4](x4)
+        x6 = self.layers[5](x5)
         x7 = F.avg_pool2d(x6, 2)
         x8 = x7.view(x7.size(0), -1) 
         y_hat =self.fc(x8)
         return y_hat
     
-    def forward(self, x,Layer_Count,volly=None):   
+    def forward(self, x,Layer_Count,volly=None):  
         if Layer_Count!=self.Layer_Count:
             if Layer_Count[0]>self.Layer_Count[0] and Layer_Count[1]>self.Layer_Count[1]:
                 self.removeLayer(x,Layer_Count)
             else:
-                self.addLayer(x,Layer_Count,volly)               
+                self.addLayer(x,Layer_Count,volly)   
+                
         if self.Layer_Count==[2,4]:
             y_hat=self.forward2_4(x)
         elif self.Layer_Count==[3,3]:
@@ -107,7 +108,7 @@ class ResNet18_server_side(nn.Module):
         print(f"{self.Layer_Count[1]} => {Layer_Count[1]}")
         diff=Layer_Count[1]-self.Layer_Count[1]
         for i in range(diff):
-            self.layers.insert(0,volly[len(volly)-1-i])
+            self.layers[self.Layer_Count[0]-diff+i]=volly[self.Layer_Count[0]-diff+i]
         self.Layer_Count=Layer_Count
             
     def removeLayer(self,x,Layer_Count):

@@ -203,6 +203,7 @@ class ResNet18_server_side(nn.Module):
         for i in range(1, num_layers):
             netLayers.append(block(self.input_planes, planes))
             self.input_planes = planes * block.expansion
+            print(self.input_planes)
             
         return nn.Sequential(*netLayers)
         
