@@ -39,6 +39,7 @@ class Client(object):
                 client_fx = fx.clone().detach().requires_grad_(True)            
                 # Sending activations to server and receiving Y^ from server
                 dfx = self.Global.train_server(client_fx, labels, iter, self.local_ep, self.idx, len_batch,net_glob_server,device,self.LayerSplit,volly)
+                #optimizer_client.zero_grad()
                 #--------backward prop -------------
                 fx.backward(dfx)
                 optimizer_client.step()

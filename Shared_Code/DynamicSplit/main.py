@@ -35,6 +35,7 @@ def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_te
     epochSplit=(int(EPOCHS/3),int(EPOCHS/3*2))
     for iter in range(EPOCHS):
         print("Global epoch:",iter)
+        #Layer split change ever 1/3rd epoch
         print(epochSplit,"/",iter>epochSplit[0],"/",iter<epochSplit[1],"/", iter>=epochSplit[1])
         if iter>=epochSplit[0] and iter<epochSplit[1]:
             print("Layer change")
@@ -43,6 +44,7 @@ def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_te
         #if True:
             print("Layer change")
             layersplit=[2,4]
+        #Client setup and randomizaition
         m = max(int(FRAC * NUM_USERS), 1)
         idxs_users = np.random.choice(range(NUM_USERS), m, replace = False)
         tempClientArray=[]
