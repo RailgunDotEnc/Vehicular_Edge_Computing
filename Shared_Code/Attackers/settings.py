@@ -1,0 +1,9 @@
+RESNETTYPE=[2,2,2,2] #18
+NUM_USERS = 2
+EPOCHS = 5
+LOCAL_EP=1
+FRAC = 1
+LR = 0.0001
+#mnist10, fmnist10, cifar10, cifar100
+TRAINING_SORCE="fmnist10"
+ATTACKERS = True
