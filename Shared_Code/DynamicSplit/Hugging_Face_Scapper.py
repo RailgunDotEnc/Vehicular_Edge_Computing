@@ -80,8 +80,8 @@ def mnist():
     print()
     for i in range(len(dataset["test"])):
         img=dataset["test"][i]["image"]
-        file_name=f"{path1}\\img_tr_{i}"
-        print(f"Train: {i+1}/{len(dataset['test'])}: {file_name}", end="\r")
+        file_name=f"{path2}\\img_tr_{i}"
+        print(f"Test: {i+1}/{len(dataset['test'])}: {file_name}", end="\r")
         img.save(f"{file_name}.jpg")
         fineLables=dataset["test"][i]["label"]
         file1.write(f"img_tr_{i},{fineLables}\n")
@@ -103,8 +103,8 @@ def fashion_mnist():
     print()
     for i in range(len(dataset["test"])):
         img=dataset["test"][i]["image"]
-        file_name=f"{path1}\\img_tr_{i}"
-        print(f"Train: {i+1}/{len(dataset['test'])}: {file_name}", end="\r")
+        file_name=f"{path2}\\img_tr_{i}"
+        print(f"Test: {i+1}/{len(dataset['test'])}: {file_name}", end="\r")
         img.save(f"{file_name}.jpg")
         fineLables=dataset["test"][i]["label"]
         file1.write(f"img_tr_{i},{fineLables}\n")
