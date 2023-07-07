@@ -6,7 +6,7 @@ import math
 class ResNet18_client_side(nn.Module):
     def __init__(self,global_server,channels,block,num_layers):
         super(ResNet18_client_side, self).__init__()
-        self.Layer_Count=[4,2]
+        self.Layer_Count=[2,4]
         self.Global=global_server
         self.layer1 = nn.Sequential (
                 nn.Conv2d(channels, 64, kernel_size = 7, stride = 2, padding = 3, bias = False),
@@ -31,7 +31,13 @@ class ResNet18_client_side(nn.Module):
         self.layer4 = self._layer(block, 128, num_layers[0],64, stride = 2)
         self.layer5 =self._layer(block, 256, num_layers[1],128, stride = 2)
         
-        self.layers=[self.layer1,self.layer2,self.layer3,self.layer4,None,None]
+        self.layers=[]
+        for i in range(6):
+            if i<self.Layer_Count[0]:
+                self.layers.append(f"layer{i+1}")
+            else:
+                self.layers.append(None)
+        print(self.layers)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -54,86 +60,61 @@ class ResNet18_client_side(nn.Module):
             input_planes = planes * block.expansion
         return nn.Sequential(*netLayers)
             
-
-    def forward2_4(self,x):
-        resudial1 = F.relu(self.layers[0](x))
-        out1 = self.layers[1](resudial1)
-        out1 = out1 + resudial1 # adding the resudial inputs -- downsampling not required in this layer
-        resudial2 = F.relu(out1)
-        
-        return resudial2
     
-    def forward3_3(self,x):
-        resudial1 = F.relu(self.layers[0](x))
-        out1 = self.layers[1](resudial1)
-        out1 = out1 + resudial1 # adding the resudial inputs -- downsampling not required in this layer
-        resudial2 = F.relu(out1)
-        
-        out2 = self.layers[2](resudial2)
-        out2 = out2 + resudial2          # adding the resudial inputs -- downsampling not required in this layer
-        x3 = F.relu(out2)
-        
-        return x3
-    
-    def forward4_2(self,x):
-        resudial1 = F.relu(self.layers[0](x))
-        out1 = self.layers[1](resudial1)
-        out1 = out1 + resudial1 # adding the resudial inputs -- downsampling not required in this layer
-        resudial2 = F.relu(out1)
-        
-        out2 = self.layers[2](resudial2)
-        out2 = out2 + resudial2          # adding the resudial inputs -- downsampling not required in this layer
-        x3 = F.relu(out2)
-        x4 = self.layers[3](x3)
-        
-        return x4
-    def forward5_1(self,x):
-        resudial1 = F.relu(self.layers[0](x))
-        out1 = self.layers[1](resudial1)
-        out1 = out1 + resudial1 # adding the resudial inputs -- downsampling not required in this layer
-        resudial2 = F.relu(out1)
-        
-        out2 = self.layers[2](resudial2)
-        out2 = out2 + resudial2          # adding the resudial inputs -- downsampling not required in this layer
-        x3 = F.relu(out2)
-        x4 = self.layers[3](x3)
-        x5 = self.layers[4](x4)
-        return x5
-        
-        
-    
-    def forward(self, x, Layer_Count):
+    def forward(self, x, Layer_Count,volly=None):
         #Variable for layers to send to server
-        volly=None
-        if Layer_Count!=self.Layer_Count:
-            if Layer_Count[0]>self.Layer_Count[0] and Layer_Count[1]>self.Layer_Count[1]:
-                self.addLayer(x,Layer_Count)
-            else:
-                volly=self.removeLayer(x,Layer_Count)
-            
-        if self.Layer_Count==[2,4]:
-            layer=self.forward2_4(x)
-        elif self.Layer_Count==[3,3]:
-            layer=self.forward3_3(x)
-        elif self.Layer_Count==[4,2]:
-            layer=self.forward4_2(x)
-        return layer,volly
+        #layer 1
+        x = F.relu(self.layer1(x))
+        #Layre2
+        if self.layer2!=None:
+            out1 = self.layer2(x)
+            x = out1 + x # adding the resudial inputs -- downsampling not required in this layer
+            x = F.relu(x)
+        #Layer3
+        if self.layers[2]!=None:
+            out2 = self.layer3(x)
+            out2 = out2 + x          # adding the resudial inputs -- downsampling not required in this layer
+            x = F.relu(out2)
+        if self.layers[3]:
+            x = self.layer4(x)
+        if self.layers[4]:
+            x = self.layer5(x)
+        return x,volly
+        
+        
+    def get_weights(self,client_dict,layers):
+        keys=list(client_dict.keys())
+        volly={}
+        for i in range(len(keys)):
+            for j in range(len(layers)):
+                if f"layer{layers[j]}." in keys[i]:
+                    volly[f"{ keys[i]}"]=client_dict[keys[i]]
+        return(volly)
     
-    def addLayer(self,x,Layer_Count):
-        print("Layer(s) added to Client")
-        print("f{self.Layer_Count[0]} => {Layer_Count[0]}")
-        self.Layer_Count=Layer_Count
-        pass
-    def removeLayer(self,x,Layer_Count):
-        print("Layer(s) removed from Client")
-        print(f"{self.Layer_Count[0]} => {Layer_Count[0]}")
-        diff=self.Layer_Count[0]-Layer_Count[0]
-        volly=[None,None,None,None,None,None]
-        for i in range(diff):
-            volly[self.Layer_Count[0]-diff+i]=self.layers[self.Layer_Count[0]-diff+i]
-            self.layers[(len(self.layers)-diff)+i]=None
-        self.Layer_Count=Layer_Count
-        return volly
+    def activate_layers(self,layers):
+        print("Client activate:",layers)
+        all_layers=["layer1","layer2","layer3","layer4","layer5"]
+        for i in range(len(layers)):
+            self.layers[layers[i]-1]=all_layers[layers[i]-1]
+            
+        new_layer_count=0
+        for i in range(len(self.layers)):
+            if self.layers[i]!=None:
+                new_layer_count=new_layer_count+1
+        print(self.layers)
+        self.Layer_Count=[new_layer_count,6-new_layer_count]
+            
+    def deactivate_layers(self,layers):
+        print("Client Deactivate:",layers)
+        for i in range(len(layers)):
+            self.layers[layers[i]-1]=None
+        new_layer_count=0
+        for i in range(len(self.layers)):
+            if self.layers[i]!=None:
+                new_layer_count=new_layer_count+1
+        print(self.layers)
+        self.Layer_Count=[new_layer_count,6-new_layer_count]
+        
         
         
         
