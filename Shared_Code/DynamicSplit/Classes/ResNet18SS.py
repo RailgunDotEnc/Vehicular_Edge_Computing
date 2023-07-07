@@ -7,7 +7,9 @@ class ResNet18_server_side(nn.Module):
     def __init__(self,global_server, block, num_layers, classes,channels):
         super(ResNet18_server_side, self).__init__()
         self.Global=global_server
-        self.Layer_Count=[4,2]
+        self.Layer_Count=[2,4]
+        self.Saved_Layers={}
+        
         self.layer2 = nn.Sequential  (
                 nn.Conv2d(64, 64, kernel_size = 3, stride = 1, padding = 1, bias = False),
                 nn.BatchNorm2d(64),
@@ -29,7 +31,13 @@ class ResNet18_server_side(nn.Module):
         self.layer5 = self._layer(block, 256, num_layers[1],128, stride = 2)
         self.layer6 = self._layer(block, 512, num_layers[2],256, stride = 2)
         
-        self.layers=[None,None,None,None,self.layer5,self.layer6]
+        self.layers=[]
+        for i in range(6):
+            if i>=self.Layer_Count[0]:
+                self.layers.append(f"layer{i+1}")
+            else:
+                self.layers.append(None)
+        print(self.layers)
         
         self. averagePool = nn.AvgPool2d(kernel_size = 7, stride = 1)
         self.fc = nn.Linear(512 * block.expansion, classes)
@@ -56,62 +64,62 @@ class ResNet18_server_side(nn.Module):
             input_planes = planes * block.expansion
         return nn.Sequential(*netLayers)
     
-    def forward2_4(self,x):
-        out2 = self.layers[2](x)
-        out2 = out2 + x          # adding the resudial inputs -- downsampling not required in this layer
-        x3 = F.relu(out2)
-        
-        x4 = self. layers[3](x3)
-        x5 = self.layers[4](x4)
-        x6 = self.layers[5](x5)
-        
-        x7 = F.avg_pool2d(x6, 2)
-        x8 = x7.view(x7.size(0), -1) 
-        y_hat =self.fc(x8)
-        
-        return y_hat
     
-    def forward3_3(self,x3):
-        x4 = self.layers[3](x3)
-        x5 = self.layers[4](x4)
-        x6 = self.layers[5](x5)
+    def forward(self, x,Layer_Count,volly=None): 
+        if self.layers[1]!=None:
+            out1 = self.layer2(x)
+            x = out1 + x # adding the resudial inputs -- downsampling not required in this layer
+            x = F.relu(x)
+        if self.layers[2]!=None:
+            out2 = self.layer3(x)
+            out2 = out2 + x          # adding the resudial inputs -- downsampling not required in this layer
+            x = F.relu(out2)
+        if self.layers[3]:
+            x = self.layer4(x)
+        if self.layers[4]:
+            x = self.layer5(x)
+        x6 = self.layer6(x)
         x7 = F.avg_pool2d(x6, 2)
         x8 = x7.view(x7.size(0), -1) 
         y_hat =self.fc(x8)
         return y_hat
     
-    def forward4_2(self,x4):
-        x5 = self.layers[4](x4)
-        x6 = self.layers[5](x5)
-        x7 = F.avg_pool2d(x6, 2)
-        x8 = x7.view(x7.size(0), -1) 
-        y_hat =self.fc(x8)
-        return y_hat
-    
-    def forward(self, x,Layer_Count,volly=None):  
-        if Layer_Count!=self.Layer_Count:
-            if Layer_Count[0]>self.Layer_Count[0] and Layer_Count[1]>self.Layer_Count[1]:
-                self.removeLayer(x,Layer_Count)
-            else:
-                self.addLayer(x,Layer_Count,volly)   
-                
-        if self.Layer_Count==[2,4]:
-            y_hat=self.forward2_4(x)
-        elif self.Layer_Count==[3,3]:
-            y_hat=self.forward3_3(x)
-        elif self.Layer_Count==[4,2]:
-            y_hat=self.forward4_2(x)
-        return y_hat
-    
-    def addLayer(self,x,Layer_Count,volly):
-        print("Layer(s) added to Server")
-        print(f"{self.Layer_Count[1]} => {Layer_Count[1]}")
-        diff=Layer_Count[1]-self.Layer_Count[1]
-        for i in range(diff):
-            self.layers[self.Layer_Count[0]-diff+i]=volly[self.Layer_Count[0]-diff+i]
-        self.Layer_Count=Layer_Count
+        
+    def get_weights(self,client_dict,layers,evaluate=False):
+        if evaluate==True:
+            temp=self.Saved_Layers.copy()
+            self.Saved_Layers={}
+            return temp
+        else:
+            keys=list(client_dict.keys())
+            volly={}
+            for i in range(len(keys)):
+                for j in range(len(layers)):
+                    if f"layer{layers[j]}." in keys[i]:
+                        volly[f"{keys[i]}"]=client_dict[keys[i]]
+            self.Saved_Layers=volly.copy()
+            return(volly)
+        
+    def activate_layers(self,layers):
+        print("Server activate:",layers)
+        all_layers=["layer2","layer3","layer4","layer5","layer6"]
+        for i in range(len(layers)):
+            self.layers[layers[i]-1]=all_layers[layers[i]-1]
             
-    def removeLayer(self,x,Layer_Count):
-        print("Layer(s) removed from Server")
-        print(f"{self.Layer_Count[1]} => {Layer_Count[1]}")
-        self.Layer_Count=Layer_Count
+        new_layer_count=0
+        for i in range(len(self.layers)):
+            if self.layers[i]!=None:
+                new_layer_count=new_layer_count+1
+        print(self.layers)
+        self.Layer_Count=[6-new_layer_count,new_layer_count]
+            
+    def deactivate_layers(self,layers):
+        print("Server Deactivate:",layers)
+        for i in range(len(layers)):
+            self.layers[layers[i]-1]=None
+        new_layer_count=0
+        for i in range(len(self.layers)):
+            if self.layers[i]!=None:
+                new_layer_count=new_layer_count+1
+        print(self.layers)
+        self.Layer_Count=[6-new_layer_count,new_layer_count]

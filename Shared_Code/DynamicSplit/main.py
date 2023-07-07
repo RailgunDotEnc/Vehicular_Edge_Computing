@@ -2,7 +2,7 @@
 # Split learning: ResNet18
 # ============================================================================
 #Code imports
-from settings import RESNETTYPE, NUM_USERS, EPOCHS, LOCAL_EP, FRAC, LR, TRAINING_SORCE
+from settings import RESNETTYPE, NUM_USERS, EPOCHS, LOCAL_EP, FRAC, LR, TRAINING_SORCE,EPOCHSPLIT
 
 if TRAINING_SORCE=="mnist10":
     from Dictionary_Types.dic_mnist10 import DATA_NAME, NUM_CHANNELS, IMG_TYPE
@@ -26,59 +26,95 @@ from torch import nn
 from pandas import DataFrame
 import numpy as np
 from datetime import date, datetime
+import random
 
+def changelayer(layersplit):
+    rand=random.randint(1, 3)
+    new_layersplit=[1+rand,5-rand]
+    while new_layersplit==layersplit:
+        rand=random.randint(1, 3)
+        new_layersplit=[1+rand,5-rand]       
+    print("Layer update: ",[1+rand,5-rand])
+    return [1+rand,5-rand]
 ###################Run training for model################# 
-def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_test,dict_users,dict_users_test,TcArray,TsArray):
+def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_test,dict_users,dict_users_test):
     # this epoch is global epoch, also known as rounds
-    start_time = time.time() 
-    layersplit=[4,2]
-    epochSplit=(int(EPOCHS/3),int(EPOCHS/3*2))
+    global w_client
+    TsArray=[]
+    TcArray=[]
+    SplArray=[]
+    ClientArray=[]
+    start_time = time.time()
+    
+    layersplit=[2,4]
+    
+    #Setting up epcoh split for random layer split changes
+# =============================================================================
+#     epochsplit=[EPOCHS/EPOCHSPLIT]*(EPOCHSPLIT-1)
+#     for i in range(len(epochsplit)):
+#         epochsplit[i]=int(epochsplit[i]*(i+1))
+#     print("Epoch Splits:",epochsplit)
+# =============================================================================
+    
+    #Start creating model
     for iter in range(EPOCHS):
         print("Global epoch:",iter)
-        #Layer split change ever 1/3rd epoch
-        print(epochSplit,"/",iter>epochSplit[0],"/",iter<epochSplit[1],"/", iter>=epochSplit[1])
-        if iter>=epochSplit[0] and iter<epochSplit[1]:
-            print("Layer change")
-            layersplit=[3,3]
-        elif iter>=epochSplit[1]:
-        #if True:
-            print("Layer change")
-            layersplit=[2,4]
-        #Client setup and randomizaition
+        
         m = max(int(FRAC * NUM_USERS), 1)
         idxs_users = np.random.choice(range(NUM_USERS), m, replace = False)
         tempClientArray=[]
+        tempClientSplitArray=[]
+        tempCArray=[]
+        
         # Sequential training/testing among clients      
         for idx in idxs_users:
-            local = Client.Client(Global,LOCAL_EP,net_glob_client, idx, LR, device,layersplit, dataset_train = dataset_train, dataset_test = dataset_test, idxs = dict_users[idx], idxs_test = dict_users_test[idx])
+            #Test change in layer
+            print("\nBase Layer:",layersplit)
+            rand=random.randint(0,1)
+            if rand == 1:
+                layersplit=changelayer(layersplit)
+            tempClientSplitArray.append(layersplit)
+            tempCArray.append(idx)
+            
+            local = Client.Client(Global,LOCAL_EP,layersplit,net_glob_client, idx, LR, device, dataset_train = dataset_train, dataset_test = dataset_test, idxs = dict_users[idx], idxs_test = dict_users_test[idx])
             # Training ------------------
-            w_client,tempArray = local.train(copy.deepcopy(net_glob_client).to(device),net_glob_server,device)
-        
+            w_client,tempArray,C_layers,Layer_Count = local.train(copy.deepcopy(net_glob_client).to(device),net_glob_server,device)
+            
             # Testing -------------------
-            local.evaluate(copy.deepcopy(net_glob_client).to(device),iter,net_glob_server,device)
+            local.evaluate(copy.deepcopy(net_glob_client).to(device),iter,net_glob_server,device,True)
+            
+            net_glob_client.layers=C_layers
+            net_glob_client.Layer_Count=Layer_Count
+                        
             tempClientArray.append(tempArray)
             # copy weight to net_glob_client -- use to update the client-side model of the next client to be trained
-            net_glob_client.load_state_dict(w_client)
+            net_glob_client.load_state_dict(w_client,strict=True)
+        
+        #Save times
+        ClientArray.append(tempCArray)
+        SplArray.append(tempClientSplitArray)
         TcArray.append(tempClientArray)
         TsArray.append((time.time() - start_time)/60)
         
-        
-
-    return TcArray,TsArray
+            
+    return TcArray,TsArray,SplArray,ClientArray
 
 ####################Sets up filename to save new output for results and time################
 def setup_file_name():
     today = f"{date.today()}".replace("-","_")
     timeS=f"{datetime.now().strftime('%H:%M:%S')}".replace(":","_")
-    program="SL"+"_D"+today+"_T"+timeS+DATA_NAME
+    program="DSL"+"_D"+today+"_T"+timeS+DATA_NAME
     program = f"Results\\{program}_U{NUM_USERS}_E{EPOCHS}_e{LOCAL_EP}.xlsx"
     print(f"---------{program}----------")   
     return program
 ###################Save results of accuracy and time to xlsx file#################     
-def save_results(Global,TsArray,TcArray,program):
+def save_results(Global,TsArray,TcArray,program,SplArray,ClientArray):
+    print("#########Saving Results############")
     # Save output data to .excel file (we use for comparision plots)
     round_process = [i for i in range(1, len(Global.acc_train_collect)+1)]
-    df = DataFrame({'round': round_process,'acc_train':Global.acc_train_collect, 'acc_test':Global.acc_test_collect, 'Gobal E Time (m)':TsArray, 'Local e Time per Client (m)': TcArray})     
+    df = DataFrame({'round': round_process,'acc_train':Global.acc_train_collect, 'acc_test':Global.acc_test_collect, 'Gobal E Time (m)':TsArray, 
+                    'Local e Time per Client (m)': TcArray,'Split Count':SplArray,
+                    "Client":ClientArray})     
     df.to_excel(program, sheet_name= "v1_test", index = False)   
 
 ###################Resnet client model and GPU parallel setup "if avaiable"#################
@@ -107,8 +143,7 @@ def main():
     print("#############Setting up#############")
     #Name for the outputfile
     program=setup_file_name()
-    TsArray=[]
-    TcArray=[]   
+     
     SEED = 1234
     random.seed(SEED)
     np.random.seed(SEED)
@@ -127,8 +162,6 @@ def main():
     
     print("#############Assign net_glob_server and Server Functions#############")
     net_glob_server = setup_s_resnet(device,Global)
-         
-    
     
     print("#############Set up Dataset#############")
     dataset_train, dataset_test=DatasetManger.SetUpData(NUM_CHANNELS,DATA_NAME, IMG_TYPE)
@@ -137,16 +170,17 @@ def main():
     dict_users_test = DatasetManger.dataset_iid(dataset_test, NUM_USERS)
     
     print("#############Start AI training#############")
-    TcArray,TsArray=run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_test,dict_users,dict_users_test,TcArray,TsArray)
+    TcArray,TsArray,SplArray,ClientArray=run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_test,dict_users,dict_users_test)
          
     
     print("Training and Evaluation completed!")    
     # Save output data to .excel file (we use for comparision plots)
-    save_results(Global,TsArray,TcArray,program) 
+    save_results(Global,TsArray,TcArray,program,SplArray,ClientArray) 
     
 
 
 main()
+
 
 
 
