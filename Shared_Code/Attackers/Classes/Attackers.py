@@ -49,12 +49,17 @@ class Attacker_LabelFlipping1to7(Client.Client):
         for iter in range(self.local_ep):
             len_batch = len(self.ldr_train)
             for batch_idx, (images, labels) in enumerate(self.ldr_train):
-                print(batch_idx)
-                print(labels)
-                if labels[batch_idx] == 1:
-                    labels[batch_idx] = self.target_label
-                    print("label changed from 1 to ", labels[batch_idx])
-                    print(labels)
+                if iter == 0 and batch_idx == 0:
+                    labels_A = labels.tolist()
+                    for i in range(len(labels_A)):
+                        if labels_A[i] == 1:
+                            labels_A[i] = int(self.target_label)
+                            print("label changed from 1 to ", labels_A[i])
+                    labels = torch.tensor(labels_A)    
+                #print(batch_idx)
+                #print(labels)
+                #print(labels[batch_idx])
+                #self.ldr_train.dataset.dataset.df[' fine_label'].replace(int(self.source_label), int(self.target_label))
                 images, labels = images.to(self.device), labels.to(self.device)
                 optimizer_client.zero_grad()
                 #---------forward prop-------------
