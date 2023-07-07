@@ -5,5 +5,5 @@ LOCAL_EP=1
 FRAC = 1
 LR = 0.0001
 #mnist10, fmnist10, cifar10, cifar100
-TRAINING_SORCE="cifar100"
+TRAINING_SORCE="mnist10"
 EPOCHSPLIT=3

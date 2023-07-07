@@ -17,6 +17,7 @@ class Client(object):
         self.Global=global_server
         self.ldr_train = DataLoader(DatasetManger.DatasetSplit(dataset_train, idxs), batch_size = 256*4, shuffle = True)
         self.ldr_test = DataLoader(DatasetManger.DatasetSplit(dataset_test, idxs_test), batch_size = 256*4, shuffle = True)
+        
         self.layers=layers
         self.is_attacker = False
     

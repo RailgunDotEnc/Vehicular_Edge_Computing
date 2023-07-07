@@ -84,10 +84,12 @@ class Client(object):
                 T_array.append(layers_C[0]+Absdiff-i)
             T_array.sort()
             if evaluate==False:
+                print(f"Server losses {Absdiff} nodes")
                 server_W=net_glob_server.get_weights(net_glob_server.state_dict(), T_array,evaluate)
                 net_glob_server.deactivate_layers(T_array)
             elif evaluate==True:
                 server_W=net_glob_server.get_weights(net_glob_server.state_dict(), T_array,evaluate)
+            print(f"Client gains {Absdiff} nodes")
             net_glob_client.load_state_dict(server_W,strict=False)
             net_glob_client.activate_layers(T_array)
         #Server gains layers
@@ -95,9 +97,11 @@ class Client(object):
             T_array=[]
             for i in range(Absdiff):
                 T_array.append(layers_C[0]+1-Absdiff+i)
+            print(f"Client losses {Absdiff} nodes")
             client_W=net_glob_client.get_weights(net_glob_client.state_dict(), T_array)
             net_glob_client.deactivate_layers(T_array)
             if evaluate==False:
+                print(f"Server gains {Absdiff} nodes")
                 net_glob_server.load_state_dict(client_W,strict=False)
                 net_glob_server.activate_layers(T_array)
         

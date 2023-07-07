@@ -48,6 +48,13 @@ def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_te
     
     layersplit=[2,4]
     
+    #Setting up epcoh split for random layer split changes
+# =============================================================================
+#     epochsplit=[EPOCHS/EPOCHSPLIT]*(EPOCHSPLIT-1)
+#     for i in range(len(epochsplit)):
+#         epochsplit[i]=int(epochsplit[i]*(i+1))
+#     print("Epoch Splits:",epochsplit)
+# =============================================================================
     
     #Start creating model
     for iter in range(EPOCHS):
@@ -64,8 +71,8 @@ def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_te
             #Test change in layer
             print("\nBase Layer:",layersplit)
             rand=random.randint(0,1)
-            #if rand == 1:
-            #    layersplit=changelayer(layersplit)
+            if rand == 1:
+                layersplit=changelayer(layersplit)
             tempClientSplitArray.append(layersplit)
             tempCArray.append(idx)
             

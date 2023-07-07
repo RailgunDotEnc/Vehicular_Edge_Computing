@@ -35,7 +35,6 @@ class Attacker_LabelFlipping1to7(Client.Client):
         print("***************data transformed***************")
         return data
     
-
     
     def train(self, net_glob_client,net_glob_server,device):
         net_glob_client.train()
@@ -49,12 +48,14 @@ class Attacker_LabelFlipping1to7(Client.Client):
         for iter in range(self.local_ep):
             len_batch = len(self.ldr_train)
             for batch_idx, (images, labels) in enumerate(self.ldr_train):
+                
+                #Label flip
                 print(batch_idx)
-                print(labels)
                 if labels[batch_idx] == 1:
                     labels[batch_idx] = self.target_label
                     print("label changed from 1 to ", labels[batch_idx])
                     print(labels)
+                    
                 images, labels = images.to(self.device), labels.to(self.device)
                 optimizer_client.zero_grad()
                 #---------forward prop-------------
