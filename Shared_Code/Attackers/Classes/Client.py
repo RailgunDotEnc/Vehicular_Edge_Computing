@@ -26,10 +26,12 @@ class Client(object):
         optimizer_client = torch.optim.Adam(net_glob_client.parameters(), lr = self.lr) 
         tempArray=[]
         start_time_local=time.time() 
-        print("Check if server, client, and update match: ",self.layers == net_glob_client.Layer_Count and net_glob_client.Layer_Count == net_glob_server.Layer_Count and self.layers == net_glob_server.Layer_Count)
-        if not(self.layers == net_glob_client.Layer_Count and net_glob_client.Layer_Count == net_glob_server.Layer_Count and self.layers == net_glob_server.Layer_Count):
+        #Check new layers==Netclient, new layers == NetServer, server matchers client
+        print(self.layers,net_glob_client.Layer_Count,net_glob_server.Layer_Count)
+        layer_check_array=[self.layers == net_glob_client.Layer_Count,self.layers == net_glob_server.Layer_Count, net_glob_client.Layer_Count == net_glob_server.Layer_Count]
+        if not(layer_check_array[0] and layer_check_array[1] and layer_check_array[2]):
             self.match_netC_netS(net_glob_client,net_glob_server)
-            
+        #Run local epochs
         for iter in range(self.local_ep):
             len_batch = len(self.ldr_train)
             for batch_idx, (images, labels) in enumerate(self.ldr_train):
@@ -46,12 +48,14 @@ class Client(object):
                 fx.backward(dfx)
                 optimizer_client.step()
             tempArray.append((time.time() - start_time_local)/60)
-        return net_glob_client.state_dict() , tempArray
+        return net_glob_client.state_dict() , tempArray, net_glob_client.layers,net_glob_client.Layer_Count
     
-    def evaluate(self, net_glob_client, ell,net_glob_server,device):
-        print("Check if server and client match",net_glob_client.Layer_Count==net_glob_server.Layer_Count)
+    def evaluate(self, net_glob_client, ell,net_glob_server,device,evaluate=False):
+        layer_check_array=[self.layers == net_glob_client.Layer_Count,self.layers == net_glob_server.Layer_Count, net_glob_client.Layer_Count == net_glob_server.Layer_Count]
+        print("Check if server, client, and update match: ",layer_check_array[0] and layer_check_array[1] and layer_check_array[2])
+        
         if net_glob_client.Layer_Count!=net_glob_server.Layer_Count:
-            self.match_netC_netS(net_glob_client,net_glob_server)
+            self.match_netC_netS(net_glob_client,net_glob_server,evaluate)
             
         net_glob_client.eval()
            
@@ -65,11 +69,45 @@ class Client(object):
                 self.Global.evaluate_server(fx, labels, self.idx, len_batch, ell,net_glob_server,device,self.layers,volly)
         return 
     
-    def match_netC_netS(self,selfnet_glob_client,net_glob_server):
-        pass
+    def match_netC_netS(self,net_glob_client,net_glob_server,evaluate=False):
+        #Check which layers do not match
+        layers_C=net_glob_client.Layer_Count
+        layers_S=net_glob_server.Layer_Count
+
+        #Second match update, client, and server
+        diff3=self.layers[0]-layers_C[0]
+        diff4=self.layers[1]-layers_C[1]
+        Absdiff=abs(diff3)
+        #Client gains layers
+        if diff3>0:
+            T_array=[]
+            for i in range(Absdiff):
+                T_array.append(layers_C[0]+Absdiff-i)
+            T_array.sort()
+            if evaluate==False:
+                print(f"Server losses {Absdiff} nodes")
+                server_W=net_glob_server.get_weights(net_glob_server.state_dict(), T_array,evaluate)
+                net_glob_server.deactivate_layers(T_array)
+            elif evaluate==True:
+                server_W=net_glob_server.get_weights(net_glob_server.state_dict(), T_array,evaluate)
+            print(f"Client gains {Absdiff} nodes")
+            net_glob_client.load_state_dict(server_W,strict=False)
+            net_glob_client.activate_layers(T_array)
+        #Server gains layers
+        elif diff4>0:
+            T_array=[]
+            for i in range(Absdiff):
+                T_array.append(layers_C[0]+1-Absdiff+i)
+            print(f"Client losses {Absdiff} nodes")
+            client_W=net_glob_client.get_weights(net_glob_client.state_dict(), T_array)
+            net_glob_client.deactivate_layers(T_array)
+            if evaluate==False:
+                print(f"Server gains {Absdiff} nodes")
+                net_glob_server.load_state_dict(client_W,strict=False)
+                net_glob_server.activate_layers(T_array)
     
     
-    def get_weights(self,client_dict,layers):
+    """def get_weights(self,client_dict,layers):
         layers=[3,4]
         keys=list(client_dict.keys())
         volly={}
@@ -77,7 +115,7 @@ class Client(object):
             for j in range(len(layers)):
                 if f"layer{layers[j]}." in keys[i]:
                     volly[f"{ keys[i]}"]=client_dict[keys[i]]
-        return(volly.keys())     
+        return(volly.keys())"""     
     
     def is_attacking(self):
         return self.is_attacker
