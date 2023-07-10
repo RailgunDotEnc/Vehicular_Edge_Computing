@@ -1,4 +1,6 @@
+
 # -*- coding: utf-8 -*-
+#=======
 
 """
 Created on Thu Jul  6 11:13:50 2023
@@ -13,6 +15,7 @@ import torch.nn.functional as F
 import time
 
 import Classes.Client as Client
+from Classes.backdoor_utils import Backdoor_Utils
 
 
 
@@ -51,13 +54,19 @@ class Attacker_LabelFlipping1to7(Client.Client):
         for iter in range(self.local_ep):
             len_batch = len(self.ldr_train)
             for batch_idx, (images, labels) in enumerate(self.ldr_train):
-                if batch_idx == 0:
+                """if batch_idx == 0:
                     labels_A = labels.tolist()
                     for i in range(len(labels_A)):
                         if labels_A[i] == 1:
                             labels_A[i] = int(self.target_label)
                             #print("label changed from 1 to ", labels_A[i])
-                    labels = torch.tensor(labels_A)  
+                    labels = torch.tensor(labels_A) """ 
+                labels_A = labels.tolist()
+                for i in range(len(labels_A)):
+                    if labels_A[i] == 1:
+                        labels_A[i] = int(self.target_label)
+                        #print("label changed from 1 to ", labels_A[i])
+                labels = torch.tensor(labels_A)
                 images, labels = images.to(self.device), labels.to(self.device)
                 optimizer_client.zero_grad()
                 #---------forward prop-------------
@@ -72,3 +81,94 @@ class Attacker_LabelFlipping1to7(Client.Client):
                 optimizer_client.step()
             tempArray.append((time.time() - start_time_local)/60)
         return net_glob_client.state_dict() , tempArray, net_glob_client.layers,net_glob_client.Layer_Count
+    
+class Attacker_MultiLabelFlipping(Client.Client):
+    def __init__(self, global_server, local_ep, layers, net_glob_client, idx, lr, device, dataset_train = None, dataset_test = None, idxs = None, idxs_test = None, source_labels=[1,2,3], target_label=7):
+        super(Attacker_MultiLabelFlipping, self).__init__(global_server, local_ep, layers, net_glob_client, idx, lr, device, dataset_train, dataset_test, idxs, idxs_test)
+        self.source_labels = source_labels
+        self.target_label = target_label
+        print(f"init ATTACK MULTI LABEL FLIPPING Client {idx}")
+        
+    def train(self, net_glob_client,net_glob_server,device):
+        net_glob_client.train()
+        optimizer_client = torch.optim.Adam(net_glob_client.parameters(), lr = self.lr) 
+        tempArray=[]
+        start_time_local=time.time() 
+        #Check new layers==Netclient, new layers == NetServer, server matchers client
+        print(self.layers,net_glob_client.Layer_Count,net_glob_server.Layer_Count)
+        layer_check_array=[self.layers == net_glob_client.Layer_Count,self.layers == net_glob_server.Layer_Count, net_glob_client.Layer_Count == net_glob_server.Layer_Count]
+        if not(layer_check_array[0] and layer_check_array[1] and layer_check_array[2]):
+            self.match_netC_netS(net_glob_client,net_glob_server)
+        #Run local epochs
+        for iter in range(self.local_ep):
+            len_batch = len(self.ldr_train)
+            for batch_idx, (images, labels) in enumerate(self.ldr_train):
+                """if batch_idx == 0:
+                    labels_A = labels.tolist()
+                    for i in range(len(labels_A)):
+                        if labels_A[i] == 1:
+                            labels_A[i] = int(self.target_label)
+                            #print("label changed from 1 to ", labels_A[i])
+                    labels = torch.tensor(labels_A) """ 
+                labels_A = labels.tolist()
+                for i in range(len(labels_A)):
+                    if labels_A[i] in self.source_labels:
+                        labels_A[i] = int(self.target_label)
+                        #print("label changed from 1 to ", labels_A[i])
+                labels = torch.tensor(labels_A)
+                images, labels = images.to(self.device), labels.to(self.device)
+                optimizer_client.zero_grad()
+                #---------forward prop-------------
+                #FX holds middle gradient/layer weights
+                fx,volly= net_glob_client(images,self.layers)
+                client_fx = fx.clone().detach().requires_grad_(True)        
+                # Sending activations to server and receiving Y^ from server
+                dfx = self.Global.train_server(client_fx, labels, iter, self.local_ep, self.idx, len_batch,net_glob_server,device,self.layers,volly)
+                #--------backward prop -------------
+                fx.backward(dfx)
+                optimizer_client.step()
+            tempArray.append((time.time() - start_time_local)/60)
+        return net_glob_client.state_dict() , tempArray, net_glob_client.layers,net_glob_client.Layer_Count
+    
+class Attacker_Backdoor(Client.Client):
+    def __init__(self, global_server, local_ep, layers, net_glob_client, idx, lr, device, dataset_train = None, dataset_test = None, idxs = None, idxs_test = None):
+        super(Attacker_Backdoor, self).__init__(global_server, local_ep, layers, net_glob_client, idx, lr, device, dataset_train, dataset_test, idxs, idxs_test)
+        self.utils = Backdoor_Utils()
+        print(f"init BACKDOOR ATTACK Client {idx}")
+        
+    def data_transform(self, data, target):
+        data, target = self.utils.get_poison_batch(data, target, backdoor_fraction=0.5, backdoor_label=self.utils.backdoor_label)
+        return data, target
+    
+    def train(self, net_glob_client,net_glob_server,device):
+        net_glob_client.train()
+        optimizer_client = torch.optim.Adam(net_glob_client.parameters(), lr = self.lr) 
+        tempArray=[]
+        start_time_local=time.time() 
+        #Check new layers==Netclient, new layers == NetServer, server matchers client
+        print(self.layers,net_glob_client.Layer_Count,net_glob_server.Layer_Count)
+        layer_check_array=[self.layers == net_glob_client.Layer_Count,self.layers == net_glob_server.Layer_Count, net_glob_client.Layer_Count == net_glob_server.Layer_Count]
+        if not(layer_check_array[0] and layer_check_array[1] and layer_check_array[2]):
+            self.match_netC_netS(net_glob_client,net_glob_server)
+        #Run local epochs
+        for iter in range(self.local_ep):
+            len_batch = len(self.ldr_train)
+            for batch_idx, (images, labels) in enumerate(self.ldr_train):
+                images,labels = self.data_transform(images, labels)
+                images, labels = images.to(self.device), labels.to(self.device)
+                optimizer_client.zero_grad()
+                #---------forward prop-------------
+                #FX holds middle gradient/layer weights
+                fx,volly= net_glob_client(images,self.layers)
+                client_fx = fx.clone().detach().requires_grad_(True)        
+                # Sending activations to server and receiving Y^ from server
+                dfx = self.Global.train_server(client_fx, labels, iter, self.local_ep, self.idx, len_batch,net_glob_server,device,self.layers,volly)
+                #--------backward prop -------------
+                fx.backward(dfx)
+                optimizer_client.step()
+            tempArray.append((time.time() - start_time_local)/60)
+        return net_glob_client.state_dict() , tempArray, net_glob_client.layers,net_glob_client.Layer_Count
+        
+    
+        
+    

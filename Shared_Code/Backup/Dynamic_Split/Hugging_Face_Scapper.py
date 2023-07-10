@@ -25,19 +25,10 @@ def cifar100():
     for i in range(len(dataset["train"])):
         img=dataset["train"][i]["img"]
         file_name=f"{path1}\\img_tr_{i}"
-        print(f"Train: {i+1}/{len(dataset['train'])}: {file_name}", end="\r")
+        print(f"Train: {i+1}/{len(dataset['train'])}: {file_name}")
         img.save(f"{file_name}.jpg")
         coarse1=dataset["train"][i]["coarse_label"]
         fineLables1=dataset["train"][i]["fine_label"]
-        file1.write(f"img_tr_{i},{fineLables1},{coarse1}\n")
-    print()
-    for i in range(len(dataset["test"])):
-        img=dataset["test"][i]["img"]
-        file_name=f"{path2}\\img_tr_{i}"
-        print(f"Test: {i+1}/{len(dataset['train'])}: {file_name}", end="\r")
-        img.save(f"{file_name}.jpg")
-        coarse1=dataset["test"][i]["coarse_label"]
-        fineLables1=dataset["test"][i]["fine_label"]
         file1.write(f"img_tr_{i},{fineLables1},{coarse1}\n")
 
 def cifar10():
@@ -49,15 +40,15 @@ def cifar10():
     for i in range(len(dataset["train"])):
         img=dataset["train"][i]["img"]
         file_name=f"{path1}\\img_tr_{i}"
-        print(f"Train: {i+1}/{len(dataset['train'])}: {file_name}", end="\r")
+        print(f"Train: {i+1}/{len(dataset['train'])}: {file_name}")
         img.save(f"{file_name}.jpg")
         fineLables=dataset["train"][i]["label"]
         file1.write(f"img_tr_{i},{fineLables}\n")
-    print()
+        
     for i in range(len(dataset["test"])):
         img=dataset["test"][i]["img"]
         file_name=f"{path2}\\img_te_{i}"
-        print(f"Train: {i+1}/{len(dataset['test'])}: {file_name}", end="\r")
+        print(f"Train: {i+1}/{len(dataset['test'])}: {file_name}")
         img.save(f"{file_name}.jpg")
         fineLables=dataset["train"][i]["label"]
         file1.write(f"img_te_{i},{fineLables}\n")
@@ -73,15 +64,15 @@ def mnist():
     for i in range(len(dataset["train"])):
         img=dataset["train"][i]["image"]
         file_name=f"{path1}\\img_tr_{i}"
-        print(f"Train: {i+1}/{len(dataset['train'])}: {file_name}", end="\r")
+        print(f"Train: {i+1}/{len(dataset['train'])}: {file_name}")
         img.save(f"{file_name}.jpg")
         fineLables=dataset["train"][i]["label"]
         file1.write(f"img_tr_{i},{fineLables}\n")
-    print()
+        
     for i in range(len(dataset["test"])):
         img=dataset["test"][i]["image"]
-        file_name=f"{path2}\\img_tr_{i}"
-        print(f"Test: {i+1}/{len(dataset['test'])}: {file_name}", end="\r")
+        file_name=f"{path1}\\img_tr_{i}"
+        print(f"Train: {i+1}/{len(dataset['test'])}: {file_name}")
         img.save(f"{file_name}.jpg")
         fineLables=dataset["test"][i]["label"]
         file1.write(f"img_tr_{i},{fineLables}\n")
@@ -96,15 +87,15 @@ def fashion_mnist():
     for i in range(len(dataset["train"])):
         img=dataset["train"][i]["image"]
         file_name=f"{path1}\\img_tr_{i}"
-        print(f"Train: {i+1}/{len(dataset['train'])}: {file_name}", end="\r")
+        print(f"Train: {i+1}/{len(dataset['train'])}: {file_name}")
         img.save(f"{file_name}.jpg")
         fineLables=dataset["train"][i]["label"]
         file1.write(f"img_tr_{i},{fineLables}\n")
-    print()
+        
     for i in range(len(dataset["test"])):
         img=dataset["test"][i]["image"]
-        file_name=f"{path2}\\img_tr_{i}"
-        print(f"Test: {i+1}/{len(dataset['test'])}: {file_name}", end="\r")
+        file_name=f"{path1}\\img_tr_{i}"
+        print(f"Train: {i+1}/{len(dataset['test'])}: {file_name}")
         img.save(f"{file_name}.jpg")
         fineLables=dataset["test"][i]["label"]
         file1.write(f"img_tr_{i},{fineLables}\n")
@@ -128,7 +119,7 @@ def download(dataset):
         return
     print(dataset,"complete\n")
 
-def run(arguments):
+def main(arguments):
     if len(arguments)<=1:
         print("Missing arguments. Checkout README.txt")
         return
@@ -137,6 +128,5 @@ def run(arguments):
             download(arguments[i])
     print("All downloads Complete!")
 
-if __name__ == '__main__':
-    run(sys.argv)
+main(sys.argv)
 

@@ -25,14 +25,20 @@ class DatasetSplit(Dataset):
 class IMGData(Dataset):
     def __init__(self, df, transform = None):
         self.df = df
-        self.transform = transform  
+        self.transform = transform
+        
     def __len__(self):
+       
         return len(self.df)
+    
     def __getitem__(self, index):
+                
         X = Image.open(self.df['path'][index]).resize((64, 64))
         y = torch.tensor(int(self.df['target'][index]))
+        
         if self.transform:
             X = self.transform(X)
+        
         return X, y
 
 def dataset_iid(dataset, num_users):

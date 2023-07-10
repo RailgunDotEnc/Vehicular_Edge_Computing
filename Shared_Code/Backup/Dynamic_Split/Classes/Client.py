@@ -17,9 +17,7 @@ class Client(object):
         self.Global=global_server
         self.ldr_train = DataLoader(DatasetManger.DatasetSplit(dataset_train, idxs), batch_size = 256*4, shuffle = True)
         self.ldr_test = DataLoader(DatasetManger.DatasetSplit(dataset_test, idxs_test), batch_size = 256*4, shuffle = True)
-        
         self.layers=layers
-        self.is_attacker = False
     
 #copy.deepcopy(net_glob_client).to(device),net_glob_server,device
     def train(self, net_glob_client,net_glob_server,device):
@@ -106,17 +104,7 @@ class Client(object):
                 print(f"Server gains {Absdiff} nodes")
                 net_glob_server.load_state_dict(client_W,strict=False)
                 net_glob_server.activate_layers(T_array)
-    
-    
-    """def get_weights(self,client_dict,layers):
-        layers=[3,4]
-        keys=list(client_dict.keys())
-        volly={}
-        for i in range(len(keys)):
-            for j in range(len(layers)):
-                if f"layer{layers[j]}." in keys[i]:
-                    volly[f"{ keys[i]}"]=client_dict[keys[i]]
-        return(volly.keys())"""     
-    
-    def is_attacking(self):
-        return self.is_attacker
+        
+
+
+         
