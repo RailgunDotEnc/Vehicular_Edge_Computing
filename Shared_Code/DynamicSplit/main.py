@@ -2,7 +2,7 @@
 # Split learning: ResNet18
 # ============================================================================
 #Code imports
-from settings import RESNETTYPE, NUM_USERS, EPOCHS, LOCAL_EP, FRAC, LR, TRAINING_SORCE,EPOCHSPLIT
+from settings import RESNETTYPE, NUM_USERS, EPOCHS, LOCAL_EP, FRAC, LR, TRAINING_SORCE,EPOCHSPLIT, ACTIVATEDYNAMIC
 
 if TRAINING_SORCE=="mnist10":
     from Dictionary_Types.dic_mnist10 import DATA_NAME, NUM_CHANNELS, IMG_TYPE
@@ -12,6 +12,8 @@ elif TRAINING_SORCE=="cifar10":
     from Dictionary_Types.dic_cifar10 import DATA_NAME, NUM_CHANNELS, IMG_TYPE
 elif TRAINING_SORCE=="cifar100":  
     from Dictionary_Types.dic_cifar100 import DATA_NAME, NUM_CHANNELS, IMG_TYPE
+elif TRAINING_SORCE=="ham10000":  
+    from Dictionary_Types.dic_ham10000 import DATA_NAME, NUM_CHANNELS, IMG_TYPE
 
     
 import Classes.Baseblock as Baseblock
@@ -64,8 +66,9 @@ def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_te
             #Test change in layer
             print("\nBase Layer:",layersplit)
             rand=random.randint(0,1)
-            #if rand == 1:
-            #    layersplit=changelayer(layersplit)
+            if rand == 1 and ACTIVATEDYNAMIC==True:
+                layersplit=changelayer(layersplit)
+            #Save Layers per client
             tempClientSplitArray.append(layersplit)
             tempCArray.append(idx)
             
@@ -81,7 +84,7 @@ def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_te
                         
             tempClientArray.append(tempArray)
             # copy weight to net_glob_client -- use to update the client-side model of the next client to be trained
-            net_glob_client.load_state_dict(w_client,strict=True)
+            net_glob_client.load_state_dict(w_client)
         
         #Save times
         ClientArray.append(tempCArray)

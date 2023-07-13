@@ -8,16 +8,9 @@ class ResNet18_server_side(nn.Module):
         super(ResNet18_server_side, self).__init__()
         self.Global=global_server
         self.Layer_Count=[2,4]
+        self.input_planes = 64
         self.Saved_Layers={}
         
-        self.layer2 = nn.Sequential  (
-                nn.Conv2d(64, 64, kernel_size = 3, stride = 1, padding = 1, bias = False),
-                nn.BatchNorm2d(64),
-                nn.ReLU (inplace = True),
-                nn.Conv2d(64, 64, kernel_size = 3, stride = 1, padding = 1),
-                nn.BatchNorm2d(64),              
-            )
-        #####################################################
         #OG split
         self.layer3 = nn.Sequential (
                 nn.Conv2d(64, 64, kernel_size = 3, stride = 1, padding = 1),
@@ -25,11 +18,11 @@ class ResNet18_server_side(nn.Module):
                 nn.ReLU (inplace = True),
                 nn.Conv2d(64, 64, kernel_size = 3, stride = 1, padding = 1),
                 nn.BatchNorm2d(64),       
-                ) 
+                )
 
-        self.layer4 = self._layer(block, 128, num_layers[0],64, stride = 2)
-        self.layer5 = self._layer(block, 256, num_layers[1],128, stride = 2)
-        self.layer6 = self._layer(block, 512, num_layers[2],256, stride = 2)
+        self.layer4 = self._layer(block, 128, num_layers[1], stride = 2)
+        self.layer5 = self._layer(block, 256, num_layers[2], stride = 2)
+        self.layer6 = self._layer(block, 512, num_layers[3], stride = 2)
         
         self.layers=[]
         for i in range(6):
@@ -51,25 +44,22 @@ class ResNet18_server_side(nn.Module):
                 m.bias.data.zero_()
         
         
-    def _layer(self, block, planes, num_layers,input_planes, stride = 2):
+    def _layer(self, block, planes, num_layers, stride = 2):
         dim_change = None
-        if stride != 1 or planes != input_planes * block.expansion:
-            dim_change = nn.Sequential(nn.Conv2d(input_planes, planes*block.expansion, kernel_size = 1, stride = stride),
+        if stride != 1 or planes != self.input_planes * block.expansion:
+            dim_change = nn.Sequential(nn.Conv2d(self.input_planes, planes*block.expansion, kernel_size = 1, stride = stride),
                                        nn.BatchNorm2d(planes*block.expansion))
         netLayers = []
-        netLayers.append(block(input_planes, planes, stride = stride, dim_change = dim_change))
-        input_planes = planes * block.expansion
+        netLayers.append(block(self.input_planes, planes, stride = stride, dim_change = dim_change))
+        self.input_planes = planes * block.expansion
         for i in range(1, num_layers):
-            netLayers.append(block(input_planes, planes))
-            input_planes = planes * block.expansion
+            netLayers.append(block(self.input_planes, planes))
+            self.input_planes = planes * block.expansion
+            
         return nn.Sequential(*netLayers)
     
     
     def forward(self, x,Layer_Count,volly=None): 
-        if self.layers[1]!=None:
-            out1 = self.layer2(x)
-            x = out1 + x # adding the resudial inputs -- downsampling not required in this layer
-            x = F.relu(x)
         if self.layers[2]!=None:
             out2 = self.layer3(x)
             out2 = out2 + x          # adding the resudial inputs -- downsampling not required in this layer

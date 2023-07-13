@@ -1,6 +1,6 @@
-data_name="ham10000"
+DATA_NAME="ham10000"
 NUM_CHANNELS=3
-img_type = {
+IMG_TYPE = {
     'nv': 'Melanocytic nevi',
     'mel': 'Melanoma',
     'bkl': 'Benign keratosis-like lesions ',

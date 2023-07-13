@@ -49,21 +49,21 @@ class Client(object):
             tempArray.append((time.time() - start_time_local)/60)
         return net_glob_client.state_dict() , tempArray, net_glob_client.layers,net_glob_client.Layer_Count
     
-    def evaluate(self, net_glob_client, ell,net_glob_server,device,evaluate=False):
-        layer_check_array=[self.layers == net_glob_client.Layer_Count,self.layers == net_glob_server.Layer_Count, net_glob_client.Layer_Count == net_glob_server.Layer_Count]
+    def evaluate(self, net, ell,net_glob_server,device,evaluate=False):
+        layer_check_array=[self.layers == net.Layer_Count,self.layers == net_glob_server.Layer_Count, net.Layer_Count == net_glob_server.Layer_Count]
         print("Check if server, client, and update match: ",layer_check_array[0] and layer_check_array[1] and layer_check_array[2])
         
-        if net_glob_client.Layer_Count!=net_glob_server.Layer_Count:
-            self.match_netC_netS(net_glob_client,net_glob_server,evaluate)
+        if net.Layer_Count!=net_glob_server.Layer_Count:
+            self.match_netC_netS(net,net_glob_server,evaluate)
             
-        net_glob_client.eval()
+        net.eval()
            
         with torch.no_grad():
             len_batch = len(self.ldr_test)
             for batch_idx, (images, labels) in enumerate(self.ldr_test):
                 images, labels = images.to(self.device), labels.to(self.device)
                 #---------forward prop-------------
-                fx,volly  = net_glob_client(images,self.layers)
+                fx,volly  = net(images,self.layers)
                 # Sending activations to server 
                 self.Global.evaluate_server(fx, labels, self.idx, len_batch, ell,net_glob_server,device,self.layers,volly)
         return 
