@@ -17,7 +17,7 @@ def getTrainableParameters(model) -> list:
 def getFloatSubModules(Delta) -> list:
     param_float = []
     for param in Delta:
-        if not "FloatTensor" in Delta[param].type():
+        if "FloatTensor" not in Delta[param].type() or "num_batches_tracked" in param:
             continue
         param_float.append(param)
     return param_float
@@ -33,7 +33,7 @@ def getNetMeta(Delta) -> (dict, dict):
     return shapes, sizes
 
 
-def vec2net(vec: torch.Tensor, net): 
+"""def vec2net(vec: torch.Tensor, net): 
     '''
     convert a 1 dimension Tensor to state dict
     
@@ -44,11 +44,33 @@ def vec2net(vec: torch.Tensor, net):
     return
     None
     '''
+    print("Total size of vec:", vec.numel())
     param_float = getFloatSubModules(net)
     shapes, sizes = getNetMeta(net)
     partition = list(sizes[param] for param in param_float)
+    print("Sum of partition:", sum(partition))
+    print("param_float:", param_float)
+    print("sizes:", sizes)
+    print("Contains NaN:", torch.isnan(vec).any())
+    print("Contains Infinity:", torch.isinf(vec).any())
     flattenComponents = dict(zip(param_float, torch.split(vec, partition)))
     components = dict(((k, v.reshape(shapes[k])) for (k, v) in flattenComponents.items()))
+    net.update(components)
+    return net"""
+
+def vec2net(vec: torch.Tensor, net): 
+    # ... (your existing code)
+    param_float = getFloatSubModules(net)
+    shapes, sizes = getNetMeta(net)
+
+    print("param_float:", param_float)
+    print("sizes:", sizes)
+
+    partition = [sizes[param] for param in param_float]
+    print("Sum of partition:", sum(partition))
+
+    flattenComponents = dict(zip(param_float, torch.split(vec, partition)))
+    components = {k: v.reshape(shapes[k]) for k, v in flattenComponents.items()}
     net.update(components)
     return net
 

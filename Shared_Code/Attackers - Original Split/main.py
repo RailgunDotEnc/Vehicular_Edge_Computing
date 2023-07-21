@@ -164,18 +164,18 @@ def save_results(Global,TsArray,TcArray,program,SplArray,ClientArray):
 ###################Resnet client model and GPU parallel setup "if avaiable"#################
 def setup_c_resnet(device,Global):
     net_glob_client = ResNet18CS.ResNet18_client_side(Global,NUM_CHANNELS,Baseblock.Baseblock,RESNETTYPE)
-    if torch.cuda.device_count() > 1:
-        print("We use",torch.cuda.device_count(), "GPUs")
-        net_glob_client = nn.DataParallel(net_glob_client)   # to use the multiple GPUs; later we can change this to CPUs only     
+    #if torch.cuda.device_count() > 1:
+    #    print("We use",torch.cuda.device_count(), "GPUs")
+    #    net_glob_client = nn.DataParallel(net_glob_client)   # to use the multiple GPUs; later we can change this to CPUs only     
     net_glob_client.to(device)
     return net_glob_client
 
 ###################Resnet server model and GPU parallel setup "if avaiable"#################
 def setup_s_resnet(device,Global):
     net_glob_server = ResNet18SS.ResNet18_server_side(Global,Baseblock.Baseblock, RESNETTYPE, len(IMG_TYPE),NUM_CHANNELS) #7 is my numbr of classes
-    if torch.cuda.device_count() > 1:
-        print("We use",torch.cuda.device_count(), "GPUs")
-        net_glob_server = nn.DataParallel(net_glob_server)   # to use the multiple GPUs 
+    #if torch.cuda.device_count() > 1:
+    #    print("We use",torch.cuda.device_count(), "GPUs")
+    #    net_glob_server = nn.DataParallel(net_glob_server)   # to use the multiple GPUs 
     
     net_glob_server.to(device)  
     return net_glob_server

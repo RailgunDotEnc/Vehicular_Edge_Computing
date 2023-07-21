@@ -147,6 +147,7 @@ class Server(object):
 
         #client idx collector
         self.idx_collect = []
+        self.idx_copy = []
         self.l_epoch_check = False
         self.fed_check = False
 
@@ -214,7 +215,7 @@ class Server(object):
         utils.vec2net(result, Delta)
         return Delta
     
-    def mud_hog(self, clients, deltas, datasize):
+    def mud_hog(self, clients, deltas, datasize, device):
         # long_HoGs for clustering targeted and untargeted attackers
         # and for calculating angle > 90 for flip-sign attack
         long_HoGs = {}
@@ -237,7 +238,7 @@ class Server(object):
 
             # shortHoGs
             #sHoG = clients[i].get_avg_grad().detach().cpu().numpy()
-            sHoG = get_avg_grad(self.all_client_hogs[i])
+            sHoG = get_avg_grad(self.all_client_hogs[i]).cpu().numpy()
             #logging.debug(f"sHoG={sHoG.shape}") # model's total parameters, cifar=sHoG=(11191262,)
             L2_sHoG = np.linalg.norm(sHoG)
             full_norm_short_HoGs.append(sHoG/L2_sHoG)
@@ -449,7 +450,7 @@ class Server(object):
     # Server-side function associated with Training                             #Here
     def train_server(self,fx_client, y, l_epoch_count, l_epoch, idx, len_batch,net_glob_server,device,LayerSplit,volly):
         
-        self.idx_collect = []
+        
         net_glob_server.train()
         optimizer_server = torch.optim.Adam(net_glob_server.parameters(), lr = LR)
     
@@ -515,8 +516,10 @@ class Server(object):
                 self.fed_check = True                                                  # for evaluate_server function  - to check fed check has hitted
                 # all users served for one round ------------------------- output print and update is done in evaluate_server()
                 # for nicer display 
-                            
-                #self.idx_collect = []
+                
+                self.idx_copy.clear()
+                self.idx_copy = copy.deepcopy(self.idx_collect)
+                self.idx_collect = []
                 
                 self.acc_avg_all_user_train = sum(self.acc_train_collect_user)/len(self.acc_train_collect_user)
                 self.loss_avg_all_user_train = sum(self.loss_train_collect_user)/len(self.loss_train_collect_user)
@@ -585,13 +588,13 @@ class Server(object):
                     state_dict = net_glob_server.state_dict()
                     changedStates = self.stateChange(state_dict)
                     self.emptyStates = changedStates
-                    out = self.mud_hog(sum_hogs,delta,datasize)
+                    out = self.mud_hog(sum_hogs,delta,datasize,device)
                     
-                    for i in range(len(self.idx_collect)):
-                        if self.idx_collect[i] in out:
-                            self.acc_test_collect_user.remove(self.idx_collect[i])
-                            self.loss_test_collect_user.remove(self.idx_collect[i])
-                            print("Attacker ID {} removed").format(self.idx_collect[i])
+                    for i in range(len(self.idx_copy)):
+                        if self.idx_copy[i] in out:
+                            self.acc_test_collect_user.remove(self.idx_copy[i])
+                            self.loss_test_collect_user.remove(self.idx_copy[i])
+                            print("Attacker ID {} removed").format(self.idx_copy[i])
                     print("Attacker check complete")
                     
                                     
