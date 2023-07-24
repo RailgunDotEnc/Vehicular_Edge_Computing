@@ -120,9 +120,10 @@ def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_te
             deltas.append(l_delta)
             data=local.get_data_size()
             datasize.append(data)
+            sum_hogs_tensor = torch.stack(sum_hogs)
             
             # Testing -------------------
-            local.evaluate(copy.deepcopy(net_glob_client).to(device),iter,net_glob_server,sum_hogs,deltas,datasize,device,True)
+            local.evaluate(copy.deepcopy(net_glob_client).to(device),iter,net_glob_server,sum_hogs_tensor,deltas,datasize,device,True)
             
             net_glob_client.layers=C_layers
             net_glob_client.Layer_Count=Layer_Count

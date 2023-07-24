@@ -14,20 +14,32 @@ def getTrainableParameters(model) -> list:
     return trainableParam
 
 
-def getFloatSubModules(Delta) -> list:
+"""def getFloatSubModules(Delta) -> list:
     param_float = []
     for param in Delta:
         if "FloatTensor" not in Delta[param].type() or "num_batches_tracked" in param:
             continue
         param_float.append(param)
+    return param_float"""
+
+def getFloatSubModules(Delta) -> list:
+    param_float = []
+    for param in Delta:
+        if not "FloatTensor" in Delta[param].type():
+            continue
+        param_float.append(param)
     return param_float
 
 
-def getNetMeta(Delta) -> (dict, dict):
+"""def getNetMeta(Delta) -> (dict, dict):
     '''
     get the shape and number of elements in each modules of Delta
     get the module components of type float and otherwise 
     '''
+    shapes = dict(((k, v.shape) for (k, v) in Delta.items()))
+    sizes = dict(((k, v.numel()) for (k, v) in Delta.items()))
+    return shapes, sizes"""
+def getNetMeta(Delta) -> (dict, dict):
     shapes = dict(((k, v.shape) for (k, v) in Delta.items()))
     sizes = dict(((k, v.numel()) for (k, v) in Delta.items()))
     return shapes, sizes
@@ -58,24 +70,30 @@ def getNetMeta(Delta) -> (dict, dict):
     net.update(components)
     return net"""
 
-def vec2net(vec: torch.Tensor, net): 
-    # ... (your existing code)
-    param_float = getFloatSubModules(net)
-    shapes, sizes = getNetMeta(net)
 
-    print("param_float:", param_float)
-    print("sizes:", sizes)
-
-    partition = [sizes[param] for param in param_float]
-    print("Sum of partition:", sum(partition))
-
-    flattenComponents = dict(zip(param_float, torch.split(vec, partition)))
-    components = {k: v.reshape(shapes[k]) for k, v in flattenComponents.items()}
-    net.update(components)
+def vec2net(vec, net, sizes, param_float):
+    partition = [sizes[i] for i in range(len(param_float))]
+    start = 0
+    for param_tensor in net.parameters():
+        end = start + torch.prod(torch.tensor(param_tensor.size()))
+        # Get the corresponding tensor from vec using the partition sizes
+        tensor_shape = param_tensor.size()
+        tensor_size = torch.prod(torch.tensor(tensor_shape)).item()
+        tensor_flat = vec[start:end]
+        if tensor_size > 0:  # Avoid zero-dimensional tensors
+            # Check if the tensor size matches the expected size from the partition
+            if tensor_flat.size(0) == partition[0]:
+                param_tensor.data = tensor_flat.view(tensor_shape)
+                start = end
+            else:
+                print(f"Error: Tensor size mismatch. Expected size: {partition[0]}, Actual size: {tensor_flat.size(0)}")
+                return
+        # Remove the first element from the partition list after using it
+        partition.pop(0)
     return net
 
 
-def net2vec(net) -> (torch.Tensor):
+"""def net2vec(net) -> (torch.Tensor):
     '''
     convert state dict to a 1 dimension Tensor
     
@@ -90,6 +108,16 @@ def net2vec(net) -> (torch.Tensor):
     for param in param_float:
         components.append(net[param])
     vec = torch.cat([component.flatten() for component in components])
+    return vec"""
+
+def net2vec(net):
+    components = []
+    for param_tensor in net.values():
+        components.append(param_tensor.flatten())
+    
+    print("components:", components)
+
+    vec = torch.cat(components)
     return vec
 
 

@@ -17,10 +17,12 @@ class Client(object):
         self.lr = lr
         self.local_ep = local_ep
         self.Global=global_server
-        self.ldr_train = DataLoader(DatasetManger.DatasetSplit(dataset_train, idxs), batch_size = 16, shuffle = True) #change batch size back to 256*4
-        self.ldr_test = DataLoader(DatasetManger.DatasetSplit(dataset_test, idxs_test), batch_size = 16, shuffle = True)
+        self.ldr_train = DataLoader(DatasetManger.DatasetSplit(dataset_train, idxs), batch_size = 256*4, shuffle = True) #change batch size back to 256*4
+        self.ldr_test = DataLoader(DatasetManger.DatasetSplit(dataset_test, idxs_test), batch_size = 256*4, shuffle = True)
         self.layers=layers
         self.is_attacker = False
+        self.sum_hog = {param: torch.zeros_like(values) for param, values in net_glob_client.state_dict().items()}
+        self.all_client_hogs = []
         self.K_avg = 3 #window size for moving average in MUD-HoG
         self.hog_avg = deque(maxlen = self.K_avg)
         self.init_stateChange(net_glob_client)
@@ -47,14 +49,14 @@ class Client(object):
             if K_ == 0:
                 self.avg_delta[p] = self.stateChange[p]
             elif K_ < self.K_avg:
-                self.avg_delta[p] = (self.avg_delta[p]*K_ + self.stateChange[p])/(K_+1)
+                self.avg_delta[p] = (self.avg_delta[p] * K_ + self.stateChange[p]) / (K_ + 1)
             else:
-                self.avg_delta[p] += (self.stateChange[p] - self.hog_avg[0][p])/self.K_avg
+                self.avg_delta[p] += (self.state)
         self.hog_avg.append(self.stateChange)
-    
 #copy.deepcopy(net_glob_client).to(device),net_glob_server,device
     def train(self, net_glob_client,net_glob_server,device):
         net_glob_client.train()
+        self.all_client_hogs.clear()
         optimizer_client = torch.optim.Adam(net_glob_client.parameters(), lr = self.lr) 
         tempArray=[]
         start_time_local=time.time() 
@@ -83,9 +85,11 @@ class Client(object):
             tempArray.append((time.time() - start_time_local)/60)
         self.update(net_glob_client)
         sum_hog = self.get_sum_hog()
+        self.all_client_hogs.append(sum_hog)
         return net_glob_client.state_dict(), tempArray, net_glob_client.layers, net_glob_client.Layer_Count
     
     def evaluate(self, net_glob_client, ell,net_glob_server,sum_hogs,delta,datasize,device,evaluate=False):
+        self.all_client_hogs.clear()
         layer_check_array=[self.layers == net_glob_client.Layer_Count,self.layers == net_glob_server.Layer_Count, net_glob_client.Layer_Count == net_glob_server.Layer_Count]
         print("Check if server, client, and update match: ",layer_check_array[0] and layer_check_array[1] and layer_check_array[2])
         
@@ -101,6 +105,9 @@ class Client(object):
                 #---------forward prop-------------
                 fx,volly  = net_glob_client(images,self.layers)
                 client_fx = fx.clone().detach().requires_grad_(True) 
+                sum_hog = self.get_sum_hog()
+                self.all_client_hogs.append(sum_hog)
+                sum_hogs = self.all_client_hogs
                 # Sending activations to server 
                 self.Global.evaluate_server(client_fx, labels, self.idx, len_batch, ell,net_glob_server,delta,datasize,device,self.layers,volly,sum_hogs)
         return 
@@ -159,7 +166,10 @@ class Client(object):
 
         
     def get_sum_hog(self):
-        return torch.cat([v.flatten() for v in self.sum_hog.values()])
+        return torch.cat(tuple(v.flatten() for v in self.sum_hog.values()))
+    
+    def get_all_client_hogs(self):
+     return torch.stack(self.all_client_hogs)
     
     def getDelta(self):
         return self.stateChange
