@@ -75,12 +75,7 @@ class ResNet18_server_side(nn.Module):
         return y_hat
     
         
-    def get_weights(self,client_dict,layers,evaluate=False):
-        if evaluate==True:
-            temp=self.Saved_Layers.copy()
-            self.Saved_Layers={}
-            return temp
-        else:
+    def get_weights(self,client_dict,layers):
             keys=list(client_dict.keys())
             volly={}
             for i in range(len(keys)):

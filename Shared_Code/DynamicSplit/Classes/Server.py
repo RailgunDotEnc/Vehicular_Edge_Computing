@@ -35,6 +35,8 @@ class Server(object):
         self.idx_collect = []
         self.l_epoch_check = False
         self.fed_check = False
+        
+        self.tick=0
 
 
         #====================================================================================================

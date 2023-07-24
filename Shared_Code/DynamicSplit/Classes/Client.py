@@ -25,11 +25,6 @@ class Client(object):
         optimizer_client = torch.optim.Adam(net_glob_client.parameters(), lr = self.lr) 
         tempArray=[]
         start_time_local=time.time() 
-        #Check new layers==Netclient, new layers == NetServer, server matchers client
-        print(self.layers,net_glob_client.Layer_Count,net_glob_server.Layer_Count)
-        layer_check_array=[self.layers == net_glob_client.Layer_Count,self.layers == net_glob_server.Layer_Count, net_glob_client.Layer_Count == net_glob_server.Layer_Count]
-        if not(layer_check_array[0] and layer_check_array[1] and layer_check_array[2]):
-            self.match_netC_netS(net_glob_client,net_glob_server)
         #Run local epochs
         for iter in range(self.local_ep):
             len_batch = len(self.ldr_train)
@@ -47,14 +42,14 @@ class Client(object):
                 fx.backward(dfx)
                 optimizer_client.step()
             tempArray.append((time.time() - start_time_local)/60)
-        return net_glob_client.state_dict() , tempArray, net_glob_client.layers,net_glob_client.Layer_Count
+        return net_glob_client.state_dict() , tempArray
     
-    def evaluate(self, net, ell,net_glob_server,device,evaluate=False):
+    def evaluate(self, net, ell,net_glob_server,device):
         layer_check_array=[self.layers == net.Layer_Count,self.layers == net_glob_server.Layer_Count, net.Layer_Count == net_glob_server.Layer_Count]
         print("Check if server, client, and update match: ",layer_check_array[0] and layer_check_array[1] and layer_check_array[2])
         
         if net.Layer_Count!=net_glob_server.Layer_Count:
-            self.match_netC_netS(net,net_glob_server,evaluate)
+            self.match_netC_netS(net,net_glob_server)
             
         net.eval()
            
@@ -68,7 +63,15 @@ class Client(object):
                 self.Global.evaluate_server(fx, labels, self.idx, len_batch, ell,net_glob_server,device,self.layers,volly)
         return 
     
-    def match_netC_netS(self,net_glob_client,net_glob_server,evaluate=False):
+    def check4update(self,net_glob_client,net_glob_server):
+        #Check new layers==Netclient, new layers == NetServer, server matchers client
+        print(self.layers,net_glob_client.Layer_Count,net_glob_server.Layer_Count)
+        layer_check_array=[self.layers == net_glob_client.Layer_Count,self.layers == net_glob_server.Layer_Count, net_glob_client.Layer_Count == net_glob_server.Layer_Count]
+        if not(layer_check_array[0] and layer_check_array[1] and layer_check_array[2]):
+            self.match_netC_netS(net_glob_client,net_glob_server)
+        return net_glob_client.layers,net_glob_client.Layer_Count
+            
+    def match_netC_netS(self,net_glob_client,net_glob_server):
         #Check which layers do not match
         layers_C=net_glob_client.Layer_Count
         layers_S=net_glob_server.Layer_Count
@@ -83,11 +86,9 @@ class Client(object):
             for i in range(Absdiff):
                 T_array.append(layers_C[0]+Absdiff-i)
             T_array.sort()
-            if evaluate==False:
-                server_W=net_glob_server.get_weights(net_glob_server.state_dict(), T_array,evaluate)
-                net_glob_server.deactivate_layers(T_array)
-            elif evaluate==True:
-                server_W=net_glob_server.get_weights(net_glob_server.state_dict(), T_array,evaluate)
+            server_W=net_glob_server.get_weights(net_glob_server.state_dict(), T_array)
+            net_glob_server.deactivate_layers(T_array)
+            
             net_glob_client.load_state_dict(server_W,strict=False)
             net_glob_client.activate_layers(T_array)
         #Server gains layers
@@ -97,9 +98,8 @@ class Client(object):
                 T_array.append(layers_C[0]+1-Absdiff+i)
             client_W=net_glob_client.get_weights(net_glob_client.state_dict(), T_array)
             net_glob_client.deactivate_layers(T_array)
-            if evaluate==False:
-                net_glob_server.load_state_dict(client_W,strict=False)
-                net_glob_server.activate_layers(T_array)
+            net_glob_server.load_state_dict(client_W,strict=False)
+            net_glob_server.activate_layers(T_array)
         
 
 

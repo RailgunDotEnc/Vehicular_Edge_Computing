@@ -28,7 +28,20 @@ from torch import nn
 from pandas import DataFrame
 import numpy as np
 from datetime import date, datetime
-import random
+
+def overfitting(epoch,Global):
+    
+    if epoch > 0:
+        diff=Global.loss_test_collect[epoch-1]-Global.loss_test_collect[epoch]
+        if diff <0:
+            print("Loss warning")
+            Global.tick=Global.tick+1
+        else:
+            Global.tick=0
+    if Global.tick>2:
+        return True
+    else:
+        return False
 
 def changelayer(layersplit):
     rand=random.randint(1, 3)
@@ -72,25 +85,33 @@ def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_te
             tempClientSplitArray.append(layersplit)
             tempCArray.append(idx)
             
+            
+            #Set up client and check for layers needed
             local = Client.Client(Global,LOCAL_EP,layersplit,net_glob_client, idx, LR, device, dataset_train = dataset_train, dataset_test = dataset_test, idxs = dict_users[idx], idxs_test = dict_users_test[idx])
-            # Training ------------------
-            w_client,tempArray,C_layers,Layer_Count = local.train(copy.deepcopy(net_glob_client).to(device),net_glob_server,device)
-            
-            # Testing -------------------
-            local.evaluate(copy.deepcopy(net_glob_client).to(device),iter,net_glob_server,device,True)
-            
+            C_layers,Layer_Count=local.check4update(net_glob_client,net_glob_server)
             net_glob_client.layers=C_layers
             net_glob_client.Layer_Count=Layer_Count
+            
+            # Training ------------------
+            w_client,tempArray = local.train(copy.deepcopy(net_glob_client).to(device),net_glob_server,device)
+            
+            # Testing -------------------
+            local.evaluate(copy.deepcopy(net_glob_client).to(device),iter,net_glob_server,device)
                         
             tempClientArray.append(tempArray)
             # copy weight to net_glob_client -- use to update the client-side model of the next client to be trained
             net_glob_client.load_state_dict(w_client)
+            
         
         #Save times
         ClientArray.append(tempCArray)
         SplArray.append(tempClientSplitArray)
         TcArray.append(tempClientArray)
         TsArray.append((time.time() - start_time)/60)
+        
+        #Stop code if model starts over fitting
+        if overfitting(iter, Global):
+            break
         
             
     return TcArray,TsArray,SplArray,ClientArray
@@ -108,7 +129,7 @@ def save_results(Global,TsArray,TcArray,program,SplArray,ClientArray):
     print("#########Saving Results############")
     # Save output data to .excel file (we use for comparision plots)
     round_process = [i for i in range(1, len(Global.acc_train_collect)+1)]
-    df = DataFrame({'round': round_process,'acc_train':Global.acc_train_collect, 'acc_test':Global.acc_test_collect, 'Gobal E Time (m)':TsArray, 
+    df = DataFrame({'round': round_process,'acc_train':Global.acc_train_collect, 'acc_test':Global.acc_test_collect,"Loss":Global.loss_test_collect, 'Gobal E Time (m)':TsArray, 
                     'Local e Time per Client (m)': TcArray,'Split Count':SplArray,
                     "Client":ClientArray})     
     df.to_excel(program, sheet_name= "v1_test", index = False)   
