@@ -4,7 +4,7 @@ from sklearn.cluster import KMeans, AgglomerativeClustering, DBSCAN
 from collections import defaultdict, Counter
 from torch import nn
 import torch.nn.functional as F
-from settings import LR, NUM_USERS
+from settings import LR, NUM_USERS, DEFENSES
 import time
 import Classes.utils.utils as utils
 
@@ -74,7 +74,7 @@ def find_targeted_attack(dict_lHoGs):
     offset_tAtk_id1 = find_minority_id(cluster_lh1)
     offset_tAtk_id1 = list(offset_tAtk_id1)  # Convert to a list if offset_tAtk_id1 is a set
     for i in range(len(offset_tAtk_id1)):
-        offset_tAtk_id1[i] = int((offset_tAtk_id1[i])/3)
+        offset_tAtk_id1[i] = int(((offset_tAtk_id1[i])/2)-1)
     sus_tAtk_id = id_lHoGs[(offset_tAtk_id1)]  # Convert offset_tAtk_id1 to a list of integers before indexing
     print(f"This round TARGETED ATTACK: {sus_tAtk_id}")
     return sus_tAtk_id
@@ -93,7 +93,7 @@ class Server(object):
         self.batch_loss_train = []
         self.batch_acc_test = []
         self.batch_loss_test = []
-        self.all_client_hogs = []
+        self.all_client_hogs = [None] * NUM_USERS
         
         self.criterion = nn.CrossEntropyLoss()
         self.count1 = 0
@@ -156,72 +156,6 @@ class Server(object):
         acc = 100.00 *correct.float()/preds.shape[0]
         return acc
     
-    """def FedFuncWholeNet(self, clients, deltas, datasize, func, state_dict, param_float):
-        Delta = copy.deepcopy(self.emptyStates)
-        deltas = deltas
-        sizes = datasize
-        total_s = sum(sizes)
-        weights = [s / total_s for s in sizes]
-        
-        deltas = [delta for delta in deltas if len(delta) > 0]
-
-        if not deltas:
-            # Handle the case when the deltas list is empty
-            print("Error: Deltas list is empty.")
-            return Delta
-        
-        grouped_tensors = {}
-
-        for delta in deltas:
-            for key, delta_tensor in delta.items():
-                tensor_size = tuple(delta_tensor.size())
-                if tensor_size not in grouped_tensors:
-                    grouped_tensors[tensor_size] = []
-                grouped_tensors[tensor_size].append(delta_tensor)
-
-
-    
-        # Concatenate tensors with the same size
-        vecs = [torch.cat(tensors_list, dim=0) for tensors_list in grouped_tensors.values() if len(tensors_list[0].shape) > 0]
-        # Filter out invalid tensors (NaN or Inf) and zero-dimensional tensors
-        vecs = [vec for vec in vecs if torch.isfinite(vec).all().item()]
-    
-        if not vecs:
-            # Handle the case when all vecs are invalid (NaN or Inf)
-            print("Error: All vecs are invalid (NaN or Inf).")
-            return Delta
-        
-    
-        weighted_vecs = [w * v for w, v in zip(weights, vecs)]
-        weighted_vecs = [vec.unsqueeze(0) if len(vec.shape) == 1 else vec for vec in weighted_vecs]
-        # Get the size of the largest tensor along dim=1
-        """""""max_size = max(vec.size(1) for vec in weighted_vecs)
-        
-        # Pad or reshape all tensors in weighted_vecs to have the same size along dim=1
-        padded_weighted_vecs = []
-        for vec in weighted_vecs:
-            if vec.size(1) < max_size:
-                # Pad the tensor to have the same size along dim=1
-                padded_vec = torch.cat([vec, torch.zeros(vec.size(0), max_size - vec.size(1))], dim=1)
-            elif vec.size(1) > max_size:
-                # Reshape the tensor to have the same size along dim=1
-                padded_vec = vec[:, :max_size]
-            else:
-                padded_vec = vec  # No need to pad or reshape
-        
-            padded_weighted_vecs.append(padded_vec)""""""
-        max_shape = max(vec.shape for vec in weighted_vecs)
-        for i in range(len(weighted_vecs)):
-            current_shape = weighted_vecs[i].shape
-            if current_shape != max_shape:
-                # Pad the tensor with zeros to match the max shape
-                padding = [0] * (len(max_shape) - len(current_shape))
-                padded_tensor = F.pad(weighted_vecs[i], padding)
-                weighted_vecs[i] = padded_tensor
-        result = func(torch.stack(weighted_vecs, dim=0).unsqueeze(0))  # input as 1 by d by n
-        result = result.view(-1)
-        utils.vec2net(result, Delta,sizes,param_float)
-        return Delta"""
     
     def mud_hog(self, clients, deltas, datasize, device,state_dict):
         # long_HoGs for clustering targeted and untargeted attackers
@@ -239,11 +173,11 @@ class Server(object):
         # STAGE 1: Collect long and short HoGs.
         for i in range(NUM_USERS):
             # longHoGs
-            sum_hog_i = (self.all_client_hogs[i*3])
+            sum_hog_i = (self.all_client_hogs[i])
             long_HoGs[i] = sum_hog_i
 
             #sHoG = clients[i].get_avg_grad().detach().cpu().numpy()
-            sHoG = get_avg_grad(self.all_client_hogs[i*3])
+            sHoG = get_avg_grad(self.all_client_hogs[i])
             L2_sHoG = np.linalg.norm(sHoG)
             full_norm_short_HoGs.append(sHoG/L2_sHoG)
             short_HoGs[i] = sHoG
@@ -372,7 +306,7 @@ class Server(object):
         #fx_client_l = fx_client.tolist()
         # Create a dictionary to store tensors with unique shapes
         # Create a list to store the lengths of tensors along the first dimension
-        self.all_client_hogs.append(sum_hogs)
+        self.all_client_hogs[idx] = (sum_hogs)
         
 
       
@@ -421,16 +355,17 @@ class Server(object):
                     state_dict = net_glob_server.state_dict()
                     changedStates = self.stateChange(state_dict)
                     self.emptyStates = changedStates
-                    self.mud_hog(sum_hogs,delta,datasize,device,state_dict)
-                    
-                    
-                    for i in range(NUM_USERS):
-                        for l_tuple in self.mal_ids:
-                            if i in l_tuple:
-                                self.acc_test_collect_user.remove(self.acc_test_collect_user[i])
-                                self.loss_test_collect_user.remove(self.loss_test_collect_user[i])
-                                print("Attacker removed").format(self.idx_copy[i])
-                    print("Attacker check complete")
+                    if DEFENSES:
+                        self.mud_hog(sum_hogs,delta,datasize,device,state_dict)
+                        
+                        
+                        for i in range(NUM_USERS):
+                            for l_tuple in self.mal_ids:
+                                if i in l_tuple:
+                                    self.acc_test_collect_user.remove(self.acc_test_collect_user[i])
+                                    self.loss_test_collect_user.remove(self.loss_test_collect_user[i])
+                                    print("Attacker removed")
+                        print("Attacker check complete")
                                     
                     acc_avg_all_user = sum(self.acc_test_collect_user)/len(self.acc_test_collect_user)
                     loss_avg_all_user = sum(self.loss_test_collect_user)/len(self.loss_test_collect_user)
