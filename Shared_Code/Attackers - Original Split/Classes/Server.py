@@ -4,7 +4,7 @@ from sklearn.cluster import KMeans, AgglomerativeClustering, DBSCAN
 from collections import defaultdict, Counter
 from torch import nn
 import torch.nn.functional as F
-from settings import LR, NUM_USERS
+from settings import LR, NUM_USERS, DEFENSES
 import time
 import Classes.utils.utils as utils
 
@@ -355,16 +355,17 @@ class Server(object):
                     state_dict = net_glob_server.state_dict()
                     changedStates = self.stateChange(state_dict)
                     self.emptyStates = changedStates
-                    self.mud_hog(sum_hogs,delta,datasize,device,state_dict)
-                    
-                    
-                    for i in range(NUM_USERS):
-                        for l_tuple in self.mal_ids:
-                            if i in l_tuple:
-                                self.acc_test_collect_user.remove(self.acc_test_collect_user[i])
-                                self.loss_test_collect_user.remove(self.loss_test_collect_user[i])
-                                print("Attacker removed")
-                    print("Attacker check complete")
+                    if DEFENSES:
+                        self.mud_hog(sum_hogs,delta,datasize,device,state_dict)
+                        
+                        
+                        for i in range(NUM_USERS):
+                            for l_tuple in self.mal_ids:
+                                if i in l_tuple:
+                                    self.acc_test_collect_user.remove(self.acc_test_collect_user[i])
+                                    self.loss_test_collect_user.remove(self.loss_test_collect_user[i])
+                                    print("Attacker removed")
+                        print("Attacker check complete")
                                     
                     acc_avg_all_user = sum(self.acc_test_collect_user)/len(self.acc_test_collect_user)
                     loss_avg_all_user = sum(self.loss_test_collect_user)/len(self.loss_test_collect_user)
