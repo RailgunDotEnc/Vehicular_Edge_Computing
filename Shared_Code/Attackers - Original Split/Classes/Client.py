@@ -88,30 +88,29 @@ class Client(object):
         self.all_client_hogs.append(sum_hog)
         return net_glob_client.state_dict(), tempArray, net_glob_client.layers, net_glob_client.Layer_Count
     
-    def evaluate(self, net_glob_client, ell,net_glob_server,sum_hogs,delta,datasize,device,evaluate=False):
-        self.all_client_hogs.clear()
-        layer_check_array=[self.layers == net_glob_client.Layer_Count,self.layers == net_glob_server.Layer_Count, net_glob_client.Layer_Count == net_glob_server.Layer_Count]
-        print("Check if server, client, and update match: ",layer_check_array[0] and layer_check_array[1] and layer_check_array[2])
-        
-        if net_glob_client.Layer_Count!=net_glob_server.Layer_Count:
-            self.match_netC_netS(net_glob_client,net_glob_server,evaluate)
-            
+    def evaluate(self, net_glob_client, ell, net_glob_server, delta, datasize, device, evaluate=False):
+        layer_check_array = [self.layers == net_glob_client.Layer_Count, self.layers == net_glob_server.Layer_Count, net_glob_client.Layer_Count == net_glob_server.Layer_Count]
+        print("Check if server, client, and update match: ", layer_check_array[0] and layer_check_array[1] and layer_check_array[2])
+    
+        if net_glob_client.Layer_Count != net_glob_server.Layer_Count:
+            self.match_netC_netS(net_glob_client, net_glob_server, evaluate)
+    
         net_glob_client.eval()
-           
+    
         with torch.no_grad():
             len_batch = len(self.ldr_test)
             for batch_idx, (images, labels) in enumerate(self.ldr_test):
                 images, labels = images.to(self.device), labels.to(self.device)
-                #---------forward prop-------------
-                fx,volly  = net_glob_client(images,self.layers)
-                client_fx = fx.clone().detach().requires_grad_(True) 
+                # ---------forward prop-------------
+                fx, volly = net_glob_client(images, self.layers)
                 sum_hog = self.get_sum_hog()
                 self.all_client_hogs.append(sum_hog)
-                sum_hogs = self.all_client_hogs
-                # Sending activations to server 
-                self.Global.evaluate_server(client_fx, labels, self.idx, len_batch, ell,net_glob_server,delta,datasize,device,self.layers,volly,sum_hogs)
-        return 
     
+                # Sending activations to server
+                self.Global.evaluate_server(fx, labels, self.idx, len_batch, ell, net_glob_server, delta, datasize, device, self.layers, volly, self.all_client_hogs)
+    
+        return
+        
     def match_netC_netS(self,net_glob_client,net_glob_server,evaluate=False):
         #Check which layers do not match
         layers_C=net_glob_client.Layer_Count

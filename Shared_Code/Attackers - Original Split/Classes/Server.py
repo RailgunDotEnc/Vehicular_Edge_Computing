@@ -178,7 +178,7 @@ class Server(object):
 
             #sHoG = clients[i].get_avg_grad().detach().cpu().numpy()
             sHoG = get_avg_grad(self.all_client_hogs[i])
-            L2_sHoG = np.linalg.norm(sHoG)
+            L2_sHoG = np.linalg.norm(sHoG.cpu().numpy())
             full_norm_short_HoGs.append(sHoG/L2_sHoG)
             short_HoGs[i] = sHoG
 
@@ -362,6 +362,7 @@ class Server(object):
                         for i in range(NUM_USERS):
                             for l_tuple in self.mal_ids:
                                 if i in l_tuple:
+                                    j = self.idx_copy.index(i)
                                     self.acc_test_collect_user.remove(self.acc_test_collect_user[i])
                                     self.loss_test_collect_user.remove(self.loss_test_collect_user[i])
                                     print("Attacker removed")
