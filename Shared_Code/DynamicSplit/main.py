@@ -2,7 +2,7 @@
 # Split learning: ResNet18
 # ============================================================================
 #Code imports
-from settings import RESNETTYPE, NUM_USERS, EPOCHS, LOCAL_EP, FRAC, LR, TRAINING_SORCE,EPOCHSPLIT, ACTIVATEDYNAMIC
+from settings import RESNETTYPE, NUM_USERS, EPOCHS, LOCAL_EP, FRAC, LR, TRAINING_SORCE, ACTIVATEDYNAMIC
 
 if TRAINING_SORCE=="mnist10":
     from Dictionary_Types.dic_mnist10 import DATA_NAME, NUM_CHANNELS, IMG_TYPE
@@ -110,8 +110,8 @@ def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_te
         TsArray.append((time.time() - start_time)/60)
         
         #Stop code if model starts over fitting
-        if overfitting(iter, Global):
-            break
+        #if overfitting(iter, Global):
+        #    break
         
             
     return TcArray,TsArray,SplArray,ClientArray
@@ -196,10 +196,8 @@ def main():
     
 
 
+
 main()
-
-
-
 
 
 
