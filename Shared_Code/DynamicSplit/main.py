@@ -2,7 +2,7 @@
 # Split learning: ResNet18
 # ============================================================================
 #Code imports
-from settings import RESNETTYPE, NUM_USERS, EPOCHS, LOCAL_EP, FRAC, LR, TRAINING_SORCE, ACTIVATEDYNAMIC
+from settings import RESNETTYPE, NUM_USERS, EPOCHS, LOCAL_EP, FRAC, LR, TRAINING_SORCE, ACTIVATEDYNAMIC, ModelType
 
 if TRAINING_SORCE=="mnist10":
     from Dictionary_Types.dic_mnist10 import DATA_NAME, NUM_CHANNELS, IMG_TYPE
@@ -121,11 +121,11 @@ def setup_file_name():
     today = f"{date.today()}".replace("-","_")
     timeS=f"{datetime.now().strftime('%H:%M:%S')}".replace(":","_")
     if ACTIVATEDYNAMIC==True:
-        program="DSL"+"_D"+today+"_T"+timeS+DATA_NAME
+        program="DSL_"+ModelType+"_D"+today+"_T"+timeS+DATA_NAME+f"_U{NUM_USERS}_E{EPOCHS}_e{LOCAL_EP}.xlsx"
     else:
-        program="SL"+"_D"+today+"_T"+timeS+DATA_NAME
-    program = f"Results\\{program}_U{NUM_USERS}_E{EPOCHS}_e{LOCAL_EP}.xlsx"
+        program="SL_"+ModelType+"_D"+today+"_T"+timeS+DATA_NAME+f"_U{NUM_USERS}_E{EPOCHS}_e{LOCAL_EP}.xlsx"
     print(f"---------{program}----------")   
+    program = f"Results\\{program}"
     return program
 ###################Save results of accuracy and time to xlsx file#################     
 def save_results(Global,TsArray,TcArray,program,SplArray,ClientArray):
@@ -139,7 +139,12 @@ def save_results(Global,TsArray,TcArray,program,SplArray,ClientArray):
 
 ###################Resnet client model and GPU parallel setup "if avaiable"#################
 def setup_c_resnet(device,Global):
-    net_glob_client = ResNet18CS.ResNet18_client_side(Global,NUM_CHANNELS,Baseblock.Baseblock,RESNETTYPE)
+    if ModelType=="ResNet50":
+        print("Using Bottleneck")
+        net_glob_client = ResNet18CS.ResNet18_client_side(Global,NUM_CHANNELS,Baseblock.Bottleneck,RESNETTYPE)
+    if ModelType=="ResNet18" or ModelType=="ResNet34":
+        print("Using BaseBlock")
+        net_glob_client = ResNet18CS.ResNet18_client_side(Global,NUM_CHANNELS,Baseblock.Baseblock,RESNETTYPE)
     if torch.cuda.device_count() > 1:
         print("We use",torch.cuda.device_count(), "GPUs")
         net_glob_client = nn.DataParallel(net_glob_client)   # to use the multiple GPUs; later we can change this to CPUs only     
@@ -148,7 +153,12 @@ def setup_c_resnet(device,Global):
 
 ###################Resnet server model and GPU parallel setup "if avaiable"#################
 def setup_s_resnet(device,Global):
-    net_glob_server = ResNet18SS.ResNet18_server_side(Global,Baseblock.Baseblock, RESNETTYPE, len(IMG_TYPE),NUM_CHANNELS) #7 is my numbr of classes
+    if ModelType=="ResNet50":
+        print("Using Bottleneck")
+        net_glob_server = ResNet18SS.ResNet18_server_side(Global,Baseblock.Bottleneck, RESNETTYPE, len(IMG_TYPE),NUM_CHANNELS) #7 is my numbr of classes
+    if ModelType=="ResNet18" or ModelType=="ResNet34":
+        print("Using BaseBlock")
+        net_glob_server = ResNet18SS.ResNet18_server_side(Global,Baseblock.Baseblock, RESNETTYPE, len(IMG_TYPE),NUM_CHANNELS) #7 is my numbr of classes
     if torch.cuda.device_count() > 1:
         print("We use",torch.cuda.device_count(), "GPUs")
         net_glob_server = nn.DataParallel(net_glob_server)   # to use the multiple GPUs 

@@ -1,10 +1,11 @@
-RESNETTYPE=[2,2,2,2] #34
+RESNETTYPE=[3,4,6,3] #34 up [3,4,6,3], #18 [2,2,2,2]
 NUM_USERS = 5
 EPOCHS = 100
 LOCAL_EP=1
 FRAC = 1
 LR = 0.0001
 #mnist10, fmnist10, cifar10, cifar100, ham10000
-TRAINING_SORCE="mnist10"
+TRAINING_SORCE="fmnist10"
 EPOCHSPLIT=3
 ACTIVATEDYNAMIC=True
+ModelType="ResNet34" #Resnet18, ResNet34, ResNet50
