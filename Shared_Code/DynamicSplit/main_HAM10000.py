@@ -2,8 +2,8 @@
 # Split learning: ResNet18
 # ============================================================================
 #Code imports
-from settings import RESNETTYPE, NUM_USERS, EPOCHS, LOCAL_EP, FRAC, LR, TRAINING_SORCE, ACTIVATEDYNAMIC
-
+from settings import RESNETTYPE, NUM_USERS, EPOCHS, LOCAL_EP, FRAC, LR, ACTIVATEDYNAMIC
+TRAINING_SORCE="ham10000"
 if TRAINING_SORCE=="mnist10":
     from Dictionary_Types.dic_mnist10 import DATA_NAME, NUM_CHANNELS, IMG_TYPE
 elif TRAINING_SORCE=="fmnist10":
@@ -79,20 +79,19 @@ def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_te
             #Test change in layer
             print("\nBase Layer:",layersplit)
             rand=random.randint(0,1)
+            #Set up client and check for layers needed
+            local = Client.Client(Global,LOCAL_EP,layersplit,net_glob_client, idx, LR, device, dataset_train = dataset_train, dataset_test = dataset_test, idxs = dict_users[idx], idxs_test = dict_users_test[idx])
             if rand == 1 and ACTIVATEDYNAMIC==True:
                 layersplit=changelayer(layersplit)
+                C_layers,Layer_Count=local.check4update(net_glob_client,net_glob_server)
+                net_glob_client.layers=C_layers
+                net_glob_client.Layer_Count=Layer_Count
             #Save Layers per client
             tempClientSplitArray.append(layersplit)
             tempCArray.append(idx)
+
+            # Training ------------------  
             
-            
-            #Set up client and check for layers needed
-            local = Client.Client(Global,LOCAL_EP,layersplit,net_glob_client, idx, LR, device, dataset_train = dataset_train, dataset_test = dataset_test, idxs = dict_users[idx], idxs_test = dict_users_test[idx])
-            C_layers,Layer_Count=local.check4update(net_glob_client,net_glob_server)
-            net_glob_client.layers=C_layers
-            net_glob_client.Layer_Count=Layer_Count
-            
-            # Training ------------------
             w_client,tempArray = local.train(copy.deepcopy(net_glob_client).to(device),net_glob_server,device)
             
             # Testing -------------------
