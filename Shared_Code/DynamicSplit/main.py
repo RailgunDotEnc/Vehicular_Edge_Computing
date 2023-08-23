@@ -14,14 +14,28 @@ elif TRAINING_SORCE=="cifar100":
     from Dictionary_Types.dic_cifar100 import DATA_NAME, NUM_CHANNELS, IMG_TYPE
 elif TRAINING_SORCE=="ham10000":  
     from Dictionary_Types.dic_ham10000 import DATA_NAME, NUM_CHANNELS, IMG_TYPE
+elif TRAINING_SORCE=="ImageNet":  
+    from Dictionary_Types.dic_imagenet import DATA_NAME, NUM_CHANNELS, IMG_TYPE
 
-    
+
+import Classes.DatasetManger as DatasetManger    
+import Classes.Server as Server
+import Classes.Client as Client
+#Resnet
 import Classes.Baseblock as Baseblock
 import Classes.ResNet18SS as ResNet18SS
 import Classes.ResNet18CS as ResNet18CS
-import Classes.DatasetManger as DatasetManger
-import Classes.Server as Server
-import Classes.Client as Client
+
+
+#Google
+import Classes.GoogleBlocks as GoogleBlocks
+import Classes.GoogleNetCS as GoogleNetCS
+import Classes.GoogleNetSS as GoogleNetSS
+
+#MobileNet
+import Classes.MobileNetBlocks as MobileNetBlocks
+import Classes.MobileNetCS as MobileNetCS
+import Classes.MobileNetSS as MobileNetSS
 ##################################################################################
 import torch, random, time, copy
 from torch import nn
@@ -120,9 +134,11 @@ def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_te
 def setup_file_name():
     today = f"{date.today()}".replace("-","_")
     timeS=f"{datetime.now().strftime('%H:%M:%S')}".replace(":","_")
-    if ACTIVATEDYNAMIC==True:
+    if NUM_USERS==1:
+        program="CL"+ModelType+"_D"+today+"_T"+timeS+DATA_NAME+f"_U{NUM_USERS}_E{EPOCHS}_e{LOCAL_EP}.xlsx"
+    elif ACTIVATEDYNAMIC==True:
         program="DSL_"+ModelType+"_D"+today+"_T"+timeS+DATA_NAME+f"_U{NUM_USERS}_E{EPOCHS}_e{LOCAL_EP}.xlsx"
-    else:
+    elif ACTIVATEDYNAMIC==False:
         program="SL_"+ModelType+"_D"+today+"_T"+timeS+DATA_NAME+f"_U{NUM_USERS}_E{EPOCHS}_e{LOCAL_EP}.xlsx"
     print(f"---------{program}----------")   
     program = f"Results\\{program}"
@@ -145,9 +161,11 @@ def setup_c_resnet(device,Global):
     if ModelType=="ResNet18" or ModelType=="ResNet34":
         print("Using BaseBlock")
         net_glob_client = ResNet18CS.ResNet18_client_side(Global,NUM_CHANNELS,Baseblock.Baseblock,RESNETTYPE)
-    if torch.cuda.device_count() > 1:
-        print("We use",torch.cuda.device_count(), "GPUs")
-        net_glob_client = nn.DataParallel(net_glob_client)   # to use the multiple GPUs; later we can change this to CPUs only     
+    if ModelType=="GoogleNet":
+        net_glob_client = GoogleNetCS.GoogLeNetClient(NUM_CHANNELS,len(IMG_TYPE),GoogleBlocks.conv_block,GoogleBlocks.Inception_block)
+    if ModelType=="MobileNet":
+        net_glob_client = MobileNetCS.MobileNetV3Client("large", NUM_CHANNELS,len(IMG_TYPE),MobileNetBlocks.MobileNetV3Block,MobileNetBlocks.BNeck)
+    
     net_glob_client.to(device)
     return net_glob_client
 
@@ -159,9 +177,10 @@ def setup_s_resnet(device,Global):
     if ModelType=="ResNet18" or ModelType=="ResNet34":
         print("Using BaseBlock")
         net_glob_server = ResNet18SS.ResNet18_server_side(Global,Baseblock.Baseblock, RESNETTYPE, len(IMG_TYPE),NUM_CHANNELS) #7 is my numbr of classes
-    if torch.cuda.device_count() > 1:
-        print("We use",torch.cuda.device_count(), "GPUs")
-        net_glob_server = nn.DataParallel(net_glob_server)   # to use the multiple GPUs 
+    if ModelType=="GoogleNet":
+        net_glob_server = GoogleNetSS.GoogLeNetServer(NUM_CHANNELS,len(IMG_TYPE),GoogleBlocks.Inception_block)
+    if ModelType=="MobileNet":
+        net_glob_server = MobileNetSS.MobileNetV3Server("large", NUM_CHANNELS,len(IMG_TYPE),MobileNetBlocks.MobileNetV3Block,MobileNetBlocks.BNeck)
     
     net_glob_server.to(device)  
     return net_glob_server

@@ -32,7 +32,6 @@ class IMGData(Dataset):
         return len(self.df)
     
     def __getitem__(self, index):
-                
         X = Image.open(self.df['path'][index]).resize((64, 64))
         y = torch.tensor(int(self.df['target'][index]))
         
@@ -55,13 +54,26 @@ def SetUpData(num_channels,data_name, img_type):
 
 
 
-    # merging both folders of HAM1000 dataset -- part1 and part2 -- into a single directory
+    # merging both folders of dataset -- part1 and part2 -- into a single directory
     imageid_path = {os.path.splitext(os.path.basename(x))[0]: x
-                    for x in glob(os.path.join("data", f'*({data_name})', '*.jpg'))}
+                    for x in glob(os.path.join("Data", f'*({data_name})', '*.jpg'))}
 
 
-    #print("path---------------------------------------", imageid_path.get)
+    if data_name=="ImageNet":
+        for i in range(len(df["image_id"])):
+            df["image_id"][i]=str(df["image_id"][i])
     df['path'] = df['image_id'].map(imageid_path.get)
+    keys=list(imageid_path.keys())
+# =============================================================================
+#     for i in range(len(df["image_id"])):
+#         for j in range(len(keys)):
+#             print("imageid:",df["image_id"][i],"key:",keys[j], "check:",df["image_id"][i]==(keys[j]),type(df["image_id"][i]),type(keys[j]) )
+#             if df["image_id"][i]==(keys[j]):
+#                 print("Path:",imageid_path[keys[i]])
+#                 df["path"][i]=imageid_path[keys[j]]
+#                 break
+# =============================================================================
+
     df['cell_type'] = df[' fine_label'].map(img_type.get)
     df['target'] = pd.Categorical(df['cell_type']).codes
 
@@ -81,7 +93,7 @@ def SetUpData(num_channels,data_name, img_type):
 
     train_transforms = transforms.Compose([transforms.RandomHorizontalFlip(), 
                             transforms.RandomVerticalFlip(),
-                            transforms.Pad(3),
+                            transforms.Pad(4),
                             transforms.RandomRotation(10),
                             transforms.CenterCrop(64),
                             transforms.ToTensor(), 
@@ -89,7 +101,7 @@ def SetUpData(num_channels,data_name, img_type):
                             ])
         
     test_transforms = transforms.Compose([
-                            transforms.Pad(3),
+                            transforms.Pad(4),
                             transforms.CenterCrop(64),
                             transforms.ToTensor(), 
                             transforms.Normalize(mean = mean, std = std)
