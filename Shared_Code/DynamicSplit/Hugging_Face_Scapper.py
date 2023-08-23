@@ -137,6 +137,14 @@ def run(arguments):
             download(arguments[i])
     print("All downloads Complete!")
 
+def setup_run(arguments):
+    if len(arguments)<1:
+        print("Missing arguments. Checkout README.txt")
+        return
+    for i in range(len(arguments)):
+        download(arguments[i])
+    print("All downloads Complete!")
 if __name__ == '__main__':
     run(sys.argv)
+
 

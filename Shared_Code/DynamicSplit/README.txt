@@ -8,5 +8,9 @@ python Hugging_Face_Scapper.py mnist fmnist cifar10
 python Hugging_Face_Scapper.py mnist fmnist cifar10 cifar100
 python Hugging_Face_Scapper.py mnist fmnist cifar10 cifar100 HAM10000
 
-3. Run main.py
+2.5 Ham10k and Intel Image must be downloaded from a zip file
+
+3. Check Settings.py
+
+4. Run main.py
 

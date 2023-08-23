@@ -34,6 +34,7 @@ class GoogLeNetServer(nn.Module):
         self.avgpool = nn.AvgPool2d(kernel_size=2, stride=1)
         self.dropout = nn.Dropout(p=0.4)
         self.fc1 = nn.Linear(1024,num_classes)
+        print(self.state_dict().keys())
         #self.softmax = nn.Softmax(dim=1)
         
     def forward(self, x,Layer_Count,volly=None):

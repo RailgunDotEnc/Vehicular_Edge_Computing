@@ -29,6 +29,7 @@ class GoogLeNetClient(nn.Module):
         self.inception4d = Inception_block(512, 112, 144, 288, 32, 64, 64)
         self.inception4e = Inception_block(528, 256, 160, 320, 32, 128, 128)
         self.maxpool4 = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        print(self.state_dict().keys())
         
         
     def forward(self, x, Layer_Count,volly=None):

@@ -7,15 +7,11 @@ def install(package):
     subprocess.check_call([sys.executable, "-m", "pip", "install -r", package])
     
 def runHuggingface(datasets):
-    args=""
-    for i in range(len(datasets)):
-        if i!=len(datasets)-1:
-            args=args+datasets[i]+" "
-        else:
-            args=args+datasets[i]
-    print("Downloading:", args)
-    args=["Import",args]
-    Hugging_Face_Scapper.run(args)
+    if len(datasets)==0:
+        print("No downloads")
+        return
+    print("Downloading:", datasets)
+    Hugging_Face_Scapper.setup_run(datasets)
 
 
 def makedir(path):
@@ -26,11 +22,12 @@ def makedir(path):
 
 #Folder for Huggingface datascrapper
 makedir("Data")
-
 makedir("Results")
 
 #Download requirements
-#install("requirements.txt")
+user=input("Download python requirements? (y/n): ")
+if user.lower()=="y":
+    install("requirements.txt")
 
 #Which dataset to download
 datasets=[]

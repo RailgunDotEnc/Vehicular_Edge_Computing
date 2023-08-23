@@ -5,7 +5,7 @@ LOCAL_EP=1
 FRAC = 1
 LR = 0.0001
 #mnist10, fmnist10, cifar10, cifar100, ham10000 ImageNet
-TRAINING_SORCE="ImageNet"
+TRAINING_SORCE="fmnist10"
 EPOCHSPLIT=3
 ACTIVATEDYNAMIC=False
 ModelType="MobileNet" #ResNet18, ResNet34, ResNet50, GoogleNet, MobileNet

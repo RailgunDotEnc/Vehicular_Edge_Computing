@@ -29,6 +29,7 @@ class MobileNetV3Server(nn.Module):
             nn.Dropout(0.8),
             nn.Conv2d(out, classes, 1, 1)
         )
+        print(self.state_dict().keys())
         self.layers=[]
         for i in range(6):
             if i<self.Layer_Count[0]:

@@ -31,6 +31,7 @@ class ResNet18_client_side(nn.Module):
                 )
         
         self.layer4 = self._layer(block, 128, num_layers[1], stride = 2)
+        print(self.state_dict().keys())
         
         self.layers=[]
         for i in range(6):

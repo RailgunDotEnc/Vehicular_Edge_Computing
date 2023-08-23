@@ -24,6 +24,8 @@ class ResNet18_server_side(nn.Module):
         self.layer5 = self._layer(block, 256, num_layers[2], stride = 2)
         self.layer6 = self._layer(block, 512, num_layers[3], stride = 2)
         
+        print(self.state_dict().keys())
+        
         self.layers=[]
         for i in range(6):
             if i>=self.Layer_Count[0]:

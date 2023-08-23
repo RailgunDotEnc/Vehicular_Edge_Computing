@@ -9,6 +9,7 @@ class MobileNetV3Client(nn.Module):
         super().__init__()
         config = self.config(config_name)
         self.Layer_Count=[2,4]
+        
         # First convolution(conv2d) layer. 
         self.conv = ConvBlock(in_channels, 16, 3, 2, nn.Hardswish())
         # Bneck blocks in a list. 
@@ -28,6 +29,7 @@ class MobileNetV3Client(nn.Module):
             nn.Dropout(0.8),
             nn.Conv2d(out, classes, 1, 1)
         )
+        print(self.state_dict().keys())
         self.layers=[]
         for i in range(6):
             if i<self.Layer_Count[0]:
