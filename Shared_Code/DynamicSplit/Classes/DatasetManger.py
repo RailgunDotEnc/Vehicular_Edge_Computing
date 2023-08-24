@@ -59,7 +59,7 @@ def SetUpData(num_channels,data_name, img_type):
                     for x in glob(os.path.join("Data", f'*({data_name})', '*.jpg'))}
 
 
-    if data_name=="ImageNet":
+    if data_name=="IntelNet":
         for i in range(len(df["image_id"])):
             df["image_id"][i]=str(df["image_id"][i])
     df['path'] = df['image_id'].map(imageid_path.get)

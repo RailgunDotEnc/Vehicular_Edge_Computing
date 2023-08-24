@@ -2,7 +2,7 @@
 
 # -*- coding: utf-8 -*-
 NUM_CHANNELS=3
-DATA_NAME="ImageNet"
+DATA_NAME="IntelNet"
 IMG_TYPE={
 0:	"buildings",
 1:	"forest",

@@ -14,8 +14,8 @@ elif TRAINING_SORCE=="cifar100":
     from Dictionary_Types.dic_cifar100 import DATA_NAME, NUM_CHANNELS, IMG_TYPE
 elif TRAINING_SORCE=="ham10000":  
     from Dictionary_Types.dic_ham10000 import DATA_NAME, NUM_CHANNELS, IMG_TYPE
-elif TRAINING_SORCE=="ImageNet":  
-    from Dictionary_Types.dic_imagenet import DATA_NAME, NUM_CHANNELS, IMG_TYPE
+elif TRAINING_SORCE=="intelnet":  
+    from Dictionary_Types.dic_intelnet import DATA_NAME, NUM_CHANNELS, IMG_TYPE
 
 
 import Classes.DatasetManger as DatasetManger    

@@ -21,8 +21,8 @@ elif TRAINING_SORCE=="cifar100":
     from Dictionary_Types.dic_cifar100 import DATA_NAME, NUM_CHANNELS, IMG_TYPE
 elif TRAINING_SORCE=="ham10000":  
     from Dictionary_Types.dic_ham10000 import DATA_NAME, NUM_CHANNELS, IMG_TYPE
-elif TRAINING_SORCE=="ImageNet":  
-    from Dictionary_Types.dic_imagenet import DATA_NAME, NUM_CHANNELS, IMG_TYPE
+elif TRAINING_SORCE=="intelnet":  
+    from Dictionary_Types.dic_intelnet import DATA_NAME, NUM_CHANNELS, IMG_TYPE
 
 import torch
 from torch import nn
@@ -183,7 +183,7 @@ print(df.head())
 imageid_path = {os.path.splitext(os.path.basename(x))[0]: x
                 for x in glob(os.path.join("data", f'*({DATA_NAME})', '*.jpg'))}
 
-if DATA_NAME=="ImageNet":
+if DATA_NAME=="IntelNet":
         for i in range(len(df["image_id"])):
             df["image_id"][i]=str(df["image_id"][i])
 #print("path---------------------------------------", imageid_path.get)
