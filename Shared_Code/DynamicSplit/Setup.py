@@ -25,7 +25,7 @@ makedir("Data")
 makedir("Results")
 
 #Download requirements
-user=input("Download python requirements? (y/n): ")
+user=input("Download python requirements? *Could result in mass errors* (y/n): ")
 if user.lower()=="y":
     install("requirements.txt")
 
