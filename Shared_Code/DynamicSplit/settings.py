@@ -8,4 +8,4 @@ LR = 0.0001
 TRAINING_SORCE="intelnet"
 EPOCHSPLIT=3
 ACTIVATEDYNAMIC=False
-ModelType="GoogleNet" #ResNet18, ResNet34, ResNet50, GoogleNet, MobileNet
+ModelType="MobileNet" #ResNet18, ResNet34, ResNet50, GoogleNet, MobileNet
