@@ -4,10 +4,10 @@ import math
 
 # Model at server side
 class ResNet18_server_side(nn.Module):
-    def __init__(self,global_server, block, num_layers, classes,channels):
+    def __init__(self,global_server, block, num_layers, classes,channels, Layers=None):
         super(ResNet18_server_side, self).__init__()
         self.Global=global_server
-        self.Layer_Count=[2,4]
+        self.Layer_Count=Layers.copy()
         self.input_planes = 64
         self.Saved_Layers={}
         

@@ -2,7 +2,7 @@
 # Split learning: ResNet18
 # ============================================================================
 #Code imports
-from settings import RESNETTYPE, NUM_USERS, EPOCHS, LOCAL_EP, FRAC, LR, TRAINING_SORCE, ACTIVATEDYNAMIC, ModelType
+from settings import RESNETTYPE, NUM_USERS, EPOCHS, LOCAL_EP, FRAC, LR, TRAINING_SORCE, ACTIVATEDYNAMIC, MODELTYPE,clientlayers,NOISE
 
 if TRAINING_SORCE=="mnist10":
     from Dictionary_Types.dic_mnist10 import DATA_NAME, NUM_CHANNELS, IMG_TYPE
@@ -58,15 +58,16 @@ def overfitting(epoch,Global):
         return False
 
 def changelayer(layersplit):
-    rand=random.randint(1, 3)
-    new_layersplit=[1+rand,5-rand]
+    total=layersplit[0]+layersplit[1]
+    rand=random.randint(2, total-2)
+    new_layersplit=[rand,total-rand]
     while new_layersplit==layersplit:
-        rand=random.randint(1, 3)
-        new_layersplit=[1+rand,5-rand]       
-    print("Layer update: ",[1+rand,5-rand])
-    return [1+rand,5-rand]
+        rand=random.randint(2, total-2)
+        new_layersplit=[rand,total-rand] 
+    print("Layer update: ",[rand,total-rand])
+    return [rand,total-rand]
 ###################Run training for model################# 
-def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_test,dict_users,dict_users_test):
+def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_test,dict_users,dict_users_test,Arch_Layers):
     # this epoch is global epoch, also known as rounds
     global w_client
     TsArray=[]
@@ -75,7 +76,7 @@ def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_te
     ClientArray=[]
     start_time = time.time()
     
-    layersplit=[2,4]
+    layersplit=Arch_Layers.copy()
     
     
     #Start creating model
@@ -107,10 +108,10 @@ def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_te
             net_glob_client.Layer_Count=Layer_Count
             
             # Training ------------------
-            w_client,tempArray = local.train(copy.deepcopy(net_glob_client).to(device),net_glob_server,device)
+            w_client,tempArray = local.train(copy.deepcopy(net_glob_client).to(device),net_glob_server,device,NOISE)
             
             # Testing -------------------
-            local.evaluate(copy.deepcopy(net_glob_client).to(device),iter,net_glob_server,device)
+            local.evaluate(copy.deepcopy(net_glob_client).to(device),iter,net_glob_server,device,NOISE)
                         
             tempClientArray.append(tempArray)
             # copy weight to net_glob_client -- use to update the client-side model of the next client to be trained
@@ -135,11 +136,11 @@ def setup_file_name():
     today = f"{date.today()}".replace("-","_")
     timeS=f"{datetime.now().strftime('%H:%M:%S')}".replace(":","_")
     if NUM_USERS==1:
-        program="CL"+ModelType+"_D"+today+"_T"+timeS+DATA_NAME+f"_U{NUM_USERS}_E{EPOCHS}_e{LOCAL_EP}.xlsx"
+        program="CL"+MODELTYPE+"_D"+today+"_T"+timeS+DATA_NAME+f"_U{NUM_USERS}_E{EPOCHS}_e{LOCAL_EP}_Noise{NOISE}.xlsx"
     elif ACTIVATEDYNAMIC==True:
-        program="DSL_"+ModelType+"_D"+today+"_T"+timeS+DATA_NAME+f"_U{NUM_USERS}_E{EPOCHS}_e{LOCAL_EP}.xlsx"
+        program="DSL_"+MODELTYPE+"_D"+today+"_T"+timeS+DATA_NAME+f"_U{NUM_USERS}_E{EPOCHS}_e{LOCAL_EP}_Noise{NOISE}.xlsx"
     elif ACTIVATEDYNAMIC==False:
-        program="SL_"+ModelType+"_D"+today+"_T"+timeS+DATA_NAME+f"_U{NUM_USERS}_E{EPOCHS}_e{LOCAL_EP}.xlsx"
+        program="SL_"+MODELTYPE+"_D"+today+"_T"+timeS+DATA_NAME+f"_U{NUM_USERS}_E{EPOCHS}_e{LOCAL_EP}_Noise{NOISE}.xlsx"
     print(f"---------{program}----------")   
     program = f"Results\\{program}"
     return program
@@ -155,32 +156,37 @@ def save_results(Global,TsArray,TcArray,program,SplArray,ClientArray):
 
 ###################Resnet client model and GPU parallel setup "if avaiable"#################
 def setup_c_resnet(device,Global):
-    if ModelType=="ResNet50":
+    Arch_Layers=[2,4]
+    if MODELTYPE=="ResNet50":
+        Arch_Layers=[clientlayers,6-clientlayers]
         print("Using Bottleneck")
-        net_glob_client = ResNet18CS.ResNet18_client_side(Global,NUM_CHANNELS,Baseblock.Bottleneck,RESNETTYPE)
-    if ModelType=="ResNet18" or ModelType=="ResNet34":
+        net_glob_client = ResNet18CS.ResNet18_client_side(Global,NUM_CHANNELS,Baseblock.Bottleneck,RESNETTYPE,Arch_Layers)
+    elif MODELTYPE=="ResNet18" or MODELTYPE=="ResNet34":
         print("Using BaseBlock")
-        net_glob_client = ResNet18CS.ResNet18_client_side(Global,NUM_CHANNELS,Baseblock.Baseblock,RESNETTYPE)
-    if ModelType=="GoogleNet":
-        net_glob_client = GoogleNetCS.GoogLeNetClient(NUM_CHANNELS,len(IMG_TYPE),GoogleBlocks.conv_block,GoogleBlocks.Inception_block)
-    if ModelType=="MobileNet":
-        net_glob_client = MobileNetCS.MobileNetV3Client("large", NUM_CHANNELS,len(IMG_TYPE),MobileNetBlocks.MobileNetV3Block,MobileNetBlocks.BNeck)
+        Arch_Layers=[clientlayers,6-clientlayers]
+        net_glob_client = ResNet18CS.ResNet18_client_side(Global,NUM_CHANNELS,Baseblock.Baseblock,RESNETTYPE,Arch_Layers)
+    elif MODELTYPE=="GoogleNet":
+        Arch_Layers=[clientlayers,5-clientlayers]
+        net_glob_client = GoogleNetCS.GoogLeNetClient(NUM_CHANNELS,len(IMG_TYPE),GoogleBlocks.conv_block,GoogleBlocks.Inception_block,Arch_Layers)
+    elif MODELTYPE=="MobileNet":
+        Arch_Layers=[clientlayers,16-clientlayers]
+        net_glob_client = MobileNetCS.MobileNetV3Client("large", NUM_CHANNELS,len(IMG_TYPE),MobileNetBlocks.MobileNetV3Block,MobileNetBlocks.BNeck,Arch_Layers)
     
     net_glob_client.to(device)
-    return net_glob_client
+    return net_glob_client, Arch_Layers
 
 ###################Resnet server model and GPU parallel setup "if avaiable"#################
-def setup_s_resnet(device,Global):
-    if ModelType=="ResNet50":
+def setup_s_resnet(device,Global,Arch_Layers):
+    if MODELTYPE=="ResNet50":
         print("Using Bottleneck")
-        net_glob_server = ResNet18SS.ResNet18_server_side(Global,Baseblock.Bottleneck, RESNETTYPE, len(IMG_TYPE),NUM_CHANNELS) #7 is my numbr of classes
-    if ModelType=="ResNet18" or ModelType=="ResNet34":
+        net_glob_server = ResNet18SS.ResNet18_server_side(Global,Baseblock.Bottleneck, RESNETTYPE, len(IMG_TYPE),NUM_CHANNELS,Arch_Layers) #7 is my numbr of classes
+    if MODELTYPE=="ResNet18" or MODELTYPE=="ResNet34":
         print("Using BaseBlock")
-        net_glob_server = ResNet18SS.ResNet18_server_side(Global,Baseblock.Baseblock, RESNETTYPE, len(IMG_TYPE),NUM_CHANNELS) #7 is my numbr of classes
-    if ModelType=="GoogleNet":
-        net_glob_server = GoogleNetSS.GoogLeNetServer(NUM_CHANNELS,len(IMG_TYPE),GoogleBlocks.Inception_block)
-    if ModelType=="MobileNet":
-        net_glob_server = MobileNetSS.MobileNetV3Server("large", NUM_CHANNELS,len(IMG_TYPE),MobileNetBlocks.MobileNetV3Block,MobileNetBlocks.BNeck)
+        net_glob_server = ResNet18SS.ResNet18_server_side(Global,Baseblock.Baseblock, RESNETTYPE, len(IMG_TYPE),NUM_CHANNELS,Arch_Layers) #7 is my numbr of classes
+    if MODELTYPE=="GoogleNet":
+        net_glob_server = GoogleNetSS.GoogLeNetServer(NUM_CHANNELS,len(IMG_TYPE),GoogleBlocks.Inception_block,Arch_Layers)
+    if MODELTYPE=="MobileNet":
+        net_glob_server = MobileNetSS.MobileNetV3Server("large", NUM_CHANNELS,len(IMG_TYPE),MobileNetBlocks.MobileNetV3Block,MobileNetBlocks.BNeck,Arch_Layers)
     
     net_glob_server.to(device)  
     return net_glob_server
@@ -206,11 +212,11 @@ def main():
     Global=Server.Server()
     
     print("#############Assign net_glob_client#############")
-    net_glob_client = setup_c_resnet(device,Global)
+    net_glob_client,Arch_Layers = setup_c_resnet(device,Global)
         
     
     print("#############Assign net_glob_server and Server Functions#############")
-    net_glob_server = setup_s_resnet(device,Global)
+    net_glob_server = setup_s_resnet(device,Global,Arch_Layers)
     
     print("#############Set up Dataset#############")
     dataset_train, dataset_test=DatasetManger.SetUpData(NUM_CHANNELS,DATA_NAME, IMG_TYPE)
@@ -219,7 +225,7 @@ def main():
     dict_users_test = DatasetManger.dataset_iid(dataset_test, NUM_USERS)
     
     print("#############Start AI training#############")
-    TcArray,TsArray,SplArray,ClientArray=run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_test,dict_users,dict_users_test)
+    TcArray,TsArray,SplArray,ClientArray=run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_test,dict_users,dict_users_test,Arch_Layers)
          
     
     print("Training and Evaluation completed!")    

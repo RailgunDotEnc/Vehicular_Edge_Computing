@@ -1,12 +1,13 @@
 import torch.nn.functional as F
 from torch import nn
+import torch
 import math
 
 # Model at client side
 class ResNet18_client_side(nn.Module):
-    def __init__(self,global_server,channels,block,num_layers):
+    def __init__(self,global_server,channels,block,num_layers, Layers=None):
         super(ResNet18_client_side, self).__init__()
-        self.Layer_Count=[2,4]
+        self.Layer_Count=Layers.copy()
         self.Global=global_server
         self.input_planes = 64
         self.layer1 = nn.Sequential (
@@ -113,6 +114,12 @@ class ResNet18_client_side(nn.Module):
                 new_layer_count=new_layer_count+1
         print(self.layers)
         self.Layer_Count=[new_layer_count,6-new_layer_count]
+        
+    def add_noise(self,device):
+        with torch.no_grad():
+           for param in self.parameters():
+                noise = torch.randn(param.size(), device=param.device)
+                param.add_(noise * 0.1)
         
         
         

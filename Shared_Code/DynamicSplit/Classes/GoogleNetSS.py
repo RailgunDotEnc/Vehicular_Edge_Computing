@@ -7,11 +7,11 @@ import math
 
 
 class GoogLeNetServer(nn.Module):
-    def __init__(self, in_channels=3, num_classes=1000,Inception_block=None):
+    def __init__(self, in_channels=3, num_classes=1000,Inception_block=None, Layers=None):
         super(GoogLeNetServer, self).__init__()
-        self.Layer_Count=[2,4]
+        self.Layer_Count=Layers.copy()
         self.layers=[]
-        for i in range(6):
+        for i in range(5):
             if i>=self.Layer_Count[0]:
                 self.layers.append(f"layer{i+1}")
             else:
@@ -64,14 +64,15 @@ class GoogLeNetServer(nn.Module):
             volly={}
             for i in range(len(keys)):
                 for j in range(len(layers)):
-                    if f"layer{layers[j]}." in keys[i]:
+                    if f"inception{layers[j]}" in keys[i]:
+                        #print(f"Moving layer {keys[i]}")
                         volly[f"{keys[i]}"]=client_dict[keys[i]]
             self.Saved_Layers=volly.copy()
             return(volly)
         
     def activate_layers(self,layers):
         print("Server activate:",layers)
-        all_layers=["layer2","layer3","layer4","layer5","layer6"]
+        all_layers=["layer2","layer3","layer4","layer5"]
         for i in range(len(layers)):
             self.layers[layers[i]-1]=all_layers[layers[i]-1]
             
@@ -80,7 +81,7 @@ class GoogLeNetServer(nn.Module):
             if self.layers[i]!=None:
                 new_layer_count=new_layer_count+1
         print(self.layers)
-        self.Layer_Count=[6-new_layer_count,new_layer_count]
+        self.Layer_Count=[5-new_layer_count,new_layer_count]
             
     def deactivate_layers(self,layers):
         print("Server Deactivate:",layers)
@@ -91,7 +92,7 @@ class GoogLeNetServer(nn.Module):
             if self.layers[i]!=None:
                 new_layer_count=new_layer_count+1
         print(self.layers)
-        self.Layer_Count=[6-new_layer_count,new_layer_count]
+        self.Layer_Count=[5-new_layer_count,new_layer_count]
         
         
         

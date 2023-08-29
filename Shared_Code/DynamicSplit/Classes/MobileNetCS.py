@@ -5,10 +5,10 @@ import math
 from torch import Tensor
 # Model at client side
 class MobileNetV3Client(nn.Module):
-    def __init__(self, config_name ="large",in_channels = 3,classes = 1000, ConvBlock=None,BNeck=None):
+    def __init__(self, config_name ="large",in_channels = 3,classes = 1000, ConvBlock=None,BNeck=None, Layers=None):
         super().__init__()
         config = self.config(config_name)
-        self.Layer_Count=[2,4]
+        self.Layer_Count=Layers.copy()
         
         # First convolution(conv2d) layer. 
         self.conv = ConvBlock(in_channels, 16, 3, 2, nn.Hardswish())
@@ -31,7 +31,7 @@ class MobileNetV3Client(nn.Module):
         )
         print(self.state_dict().keys())
         self.layers=[]
-        for i in range(6):
+        for i in range(16):
             if i<self.Layer_Count[0]:
                 self.layers.append(f"layer{i+1}")
             else:
@@ -53,6 +53,31 @@ class MobileNetV3Client(nn.Module):
     def forward(self, x, volly=None):
         x = self.conv(x)
         x =self.blocks[0](x)
+        
+        if self.layers[2]:
+           x =self.blocks[1](x)
+        if self.layers[3]:
+            x =self.blocks[2](x)
+        if self.layers[4]:
+            x =self.blocks[3](x)
+        if self.layers[5]:
+            x =self.blocks[4](x)
+        if self.layers[6]:
+            x =self.blocks[5](x)
+        if self.layers[7]:
+            x =self.blocks[6](x)
+        if self.layers[8]:
+            x =self.blocks[7](x)
+        if self.layers[9]:
+            x =self.blocks[8](x)
+        if self.layers[10]:
+            x =self.blocks[9](x)
+        if self.layers[11]:
+            x =self.blocks[10](x)
+        if self.layers[12]:
+            x =self.blocks[11](x)
+        if self.layers[13]:
+            x =self.blocks[12](x)
         
         return x,volly
     
@@ -94,11 +119,21 @@ class MobileNetV3Client(nn.Module):
         if name == "large": return large
         if name == "small": return small
         
-        
+    def get_weights(self,client_dict,layers):
+        keys=list(client_dict.keys())
+        volly={}
+        for i in range(len(keys)):
+            for j in range(len(layers)):
+                if f"blocks.{layers[j]}" in keys[i]:
+                    print(f"Moving layer {keys[i]}")
+                    volly[f"{ keys[i]}"]=client_dict[keys[i]]
+        return(volly)
     
     def activate_layers(self,layers):
         print("Client activate:",layers)
-        all_layers=["layer1","layer2","layer3","layer4","layer5"]
+        all_layers=[]
+        for i in range(1,15):
+            all_layers.append(f"layer{i}")
         for i in range(len(layers)):
             self.layers[layers[i]-1]=all_layers[layers[i]-1]
             
@@ -107,7 +142,7 @@ class MobileNetV3Client(nn.Module):
             if self.layers[i]!=None:
                 new_layer_count=new_layer_count+1
         print(self.layers)
-        self.Layer_Count=[new_layer_count,6-new_layer_count]
+        self.Layer_Count=[new_layer_count,16-new_layer_count]
             
     def deactivate_layers(self,layers):
         print("Client Deactivate:",layers)
@@ -118,7 +153,7 @@ class MobileNetV3Client(nn.Module):
             if self.layers[i]!=None:
                 new_layer_count=new_layer_count+1
         print(self.layers)
-        self.Layer_Count=[new_layer_count,6-new_layer_count]
+        self.Layer_Count=[new_layer_count,16-new_layer_count]
         
         
         

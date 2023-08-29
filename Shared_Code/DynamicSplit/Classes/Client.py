@@ -9,7 +9,7 @@ import time
 
 # Client-side functions associated with Training and Testing
 class Client(object):
-    def __init__(self,global_server,local_ep,layers, net_glob_client, idx, lr, device, dataset_train = None, dataset_test = None, idxs = None, idxs_test = None):
+    def __init__(self,global_server,local_ep,layers, net_glob_client, idx, lr, device, dataset_train = None, dataset_test = None, idxs = None, idxs_test = None,NOISE=False):
         self.idx = idx
         self.device = device
         self.lr = lr
@@ -20,7 +20,7 @@ class Client(object):
         self.layers=layers
     
 #copy.deepcopy(net_glob_client).to(device),net_glob_server,device
-    def train(self, net_glob_client,net_glob_server,device):
+    def train(self, net_glob_client,net_glob_server,device,NOISE=False):
         net_glob_client.train()
         optimizer_client = torch.optim.Adam(net_glob_client.parameters(), lr = self.lr) 
         tempArray=[]
@@ -44,8 +44,8 @@ class Client(object):
             tempArray.append((time.time() - start_time_local)/60)
         return net_glob_client.state_dict() , tempArray
     
-    def evaluate(self, net, ell,net_glob_server,device):
-        layer_check_array=[self.layers == net.Layer_Count,self.layers == net_glob_server.Layer_Count, net.Layer_Count == net_glob_server.Layer_Count]
+    def evaluate(self, net, ell,net_glob_server,device,NOISE=False):
+        layer_check_array=[self.layers == net.Layer_Count,self.layers == net_glob_server.Layer_Count, net.Layer_Count == net_glob_server.Layer_Count,]
         print("Check if server, client, and update match: ",layer_check_array[0] and layer_check_array[1] and layer_check_array[2])
         
         if net.Layer_Count!=net_glob_server.Layer_Count:
@@ -61,6 +61,10 @@ class Client(object):
                 fx,volly  = net(images,self.layers)
                 # Sending activations to server 
                 self.Global.evaluate_server(fx, labels, self.idx, len_batch, ell,net_glob_server,device,self.layers,volly)
+        #add noise
+        if NOISE==True:
+            print("Adding noise")
+            net.add_noise(self.device)
         return 
     
     def check4update(self,net_glob_client,net_glob_server):
@@ -82,6 +86,7 @@ class Client(object):
         Absdiff=abs(diff3)
         #Client gains layers
         if diff3>0:
+            print("Client gains layers")
             T_array=[]
             for i in range(Absdiff):
                 T_array.append(layers_C[0]+Absdiff-i)
@@ -93,6 +98,7 @@ class Client(object):
             net_glob_client.activate_layers(T_array)
         #Server gains layers
         elif diff4>0:
+            print("Server gains layers")
             T_array=[]
             for i in range(Absdiff):
                 T_array.append(layers_C[0]+1-Absdiff+i)
