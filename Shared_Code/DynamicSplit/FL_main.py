@@ -9,7 +9,7 @@
 
 # This program is Version1: Single program simulation 
 # ===========================================================
-from settings import RESNETTYPE, NUM_USERS, EPOCHS, LOCAL_EP, FRAC, LR, TRAINING_SORCE, ACTIVATEDYNAMIC, ModelType
+from settings import RESNETTYPE, NUM_USERS, EPOCHS, LOCAL_EP, FRAC, LR, TRAINING_SORCE, ACTIVATEDYNAMIC, MODELTYPE
 
 if TRAINING_SORCE=="mnist10":
     from Dictionary_Types.dic_mnist10 import DATA_NAME, NUM_CHANNELS, IMG_TYPE
@@ -48,7 +48,7 @@ import time
 from datetime import date, datetime
 today = f"{date.today()}".replace("-","_")
 timeS=f"{datetime.now().strftime('%H:%M:%S')}".replace(":","_")
-program="FL"+ModelType+"_D"+today+"_T"+timeS+DATA_NAME+f"_U{NUM_USERS}_E{EPOCHS}_e{LOCAL_EP}.xlsx"
+program="FL"+MODELTYPE+"_D"+today+"_T"+timeS+DATA_NAME+f"_U{NUM_USERS}_E{EPOCHS}_e{LOCAL_EP}.xlsx"
 TsArray=[]
 TcArray=[]
 
@@ -646,13 +646,13 @@ class MobileNetV3(nn.Module):
         if name == "large": return large
         if name == "small": return small
 
-if ModelType=="ResNet18":
+if MODELTYPE=="ResNet18":
     print("Running ResNet")
     net_glob = ResNet18(BasicBlock, RESNETTYPE, len(IMG_TYPE)) #7 is my numbr of classes
-elif ModelType=="GoogleNet":
+elif MODELTYPE=="GoogleNet":
     print("Running GoogleNet")
     net_glob =GoogLeNetClient(NUM_CHANNELS,len(IMG_TYPE),conv_block,Inception_block)
-if ModelType=="MobileNet":
+if MODELTYPE=="MobileNet":
     net_glob = MobileNetV3("large", NUM_CHANNELS,len(IMG_TYPE),MobileNetV3Block,BNeck)
     
 if torch.cuda.device_count() > 1:
