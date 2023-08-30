@@ -23,16 +23,21 @@ class DatasetSplit(Dataset):
 
 # Custom dataset prepration in Pytorch format
 class IMGData(Dataset):
-    def __init__(self, df, transform = None):
+    def __init__(self, df,num_channels, transform = None):
         self.df = df
         self.transform = transform
+        self.num_channels=num_channels
         
     def __len__(self):
        
         return len(self.df)
     
     def __getitem__(self, index):
-        X = Image.open(self.df['path'][index]).resize((64, 64))
+        if self.num_channels==3:
+            X = Image.open(self.df['path'][index]).resize((64, 64)).convert('RGB')
+        else:
+            X = Image.open(self.df['path'][index]).resize((64, 64))
+
         y = torch.tensor(int(self.df['target'][index]))
         
         if self.transform:
@@ -59,7 +64,7 @@ def SetUpData(num_channels,data_name, img_type):
                     for x in glob(os.path.join("Data", f'*({data_name})', '*.jpg'))}
 
 
-    if data_name=="IntelNet":
+    if data_name=="IntelNet" or "IP102_FC_EC":
         for i in range(len(df["image_id"])):
             df["image_id"][i]=str(df["image_id"][i])
     df['path'] = df['image_id'].map(imageid_path.get)
@@ -109,6 +114,6 @@ def SetUpData(num_channels,data_name, img_type):
 
 
     # With augmentation
-    dataset_train = IMGData(train, transform = train_transforms)
-    dataset_test = IMGData(test, transform = test_transforms)
+    dataset_train = IMGData(train,num_channels, transform = train_transforms,)
+    dataset_test = IMGData(test,num_channels, transform = test_transforms)
     return dataset_train, dataset_test

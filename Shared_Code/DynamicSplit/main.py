@@ -16,6 +16,12 @@ elif TRAINING_SORCE=="ham10000":
     from Dictionary_Types.dic_ham10000 import DATA_NAME, NUM_CHANNELS, IMG_TYPE
 elif TRAINING_SORCE=="intelnet":  
     from Dictionary_Types.dic_intelnet import DATA_NAME, NUM_CHANNELS, IMG_TYPE
+elif TRAINING_SORCE=="IP102_FC_EC":  
+    from Dictionary_Types.dic_IP102_FC_EC import DATA_NAME, NUM_CHANNELS, IMG_TYPE
+elif TRAINING_SORCE=="IP102_FC":  
+    from Dictionary_Types.dic_IP102_FC import DATA_NAME, NUM_CHANNELS, IMG_TYPE
+elif TRAINING_SORCE=="IP102_EC":  
+    from Dictionary_Types.dic_IP102_EC import DATA_NAME, NUM_CHANNELS, IMG_TYPE
 
 
 import Classes.DatasetManger as DatasetManger    

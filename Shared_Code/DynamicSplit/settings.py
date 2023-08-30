@@ -4,8 +4,8 @@ EPOCHS = 100
 LOCAL_EP=1
 FRAC = 1
 LR = 0.0001
-#mnist10, fmnist10, cifar10, cifar100, ham10000, intelnet
-TRAINING_SORCE="intelnet"
+#mnist10, fmnist10, cifar10, cifar100, ham10000, intelnet, IP102_FC_EC, IP102_FC, IP102_EC
+TRAINING_SORCE="IP102_EC"
 EPOCHSPLIT=3
 ACTIVATEDYNAMIC=True
 MODELTYPE="ResNet18" #ResNet18, ResNet34, ResNet50, GoogleNet, MobileNet

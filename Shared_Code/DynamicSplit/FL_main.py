@@ -23,6 +23,12 @@ elif TRAINING_SORCE=="ham10000":
     from Dictionary_Types.dic_ham10000 import DATA_NAME, NUM_CHANNELS, IMG_TYPE
 elif TRAINING_SORCE=="intelnet":  
     from Dictionary_Types.dic_intelnet import DATA_NAME, NUM_CHANNELS, IMG_TYPE
+elif TRAINING_SORCE=="IP102_FC_EC":  
+    from Dictionary_Types.dic_IP102_FC_EC import DATA_NAME, NUM_CHANNELS, IMG_TYPE
+elif TRAINING_SORCE=="IP102_FC":  
+    from Dictionary_Types.dic_IP102_FC import DATA_NAME, NUM_CHANNELS, IMG_TYPE
+elif TRAINING_SORCE=="IP102_EC":  
+    from Dictionary_Types.dic_IP102_EC import DATA_NAME, NUM_CHANNELS, IMG_TYPE
 
 import torch
 from torch import Tensor
@@ -184,7 +190,7 @@ print(df.head())
 imageid_path = {os.path.splitext(os.path.basename(x))[0]: x
                 for x in glob(os.path.join("data", f'*({DATA_NAME})', '*.jpg'))}
 
-if DATA_NAME=="IntelNet":
+if DATA_NAME=="IntelNet" or "IP102_FC_EC":
         for i in range(len(df["image_id"])):
             df["image_id"][i]=str(df["image_id"][i])
 #print("path---------------------------------------", imageid_path.get)
@@ -205,7 +211,10 @@ class SkinData(Dataset):
     
     def __getitem__(self, index):
         
-        X = Image.open(self.df['path'][index]).resize((64, 64))
+        if NUM_CHANNELS==3:
+            X = Image.open(self.df['path'][index]).resize((64, 64)).convert('RGB')
+        else:
+            X = Image.open(self.df['path'][index]).resize((64, 64))
         y = torch.tensor(int(self.df['target'][index]))
         
         if self.transform:
