@@ -32,7 +32,7 @@ class MobileNetV3Server(nn.Module):
         print(self.state_dict().keys())
         self.layers=[]
         for i in range(16):
-            if i>self.Layer_Count[0]:
+            if i>=self.Layer_Count[0]:
                 self.layers.append(f"layer{i+1}")
             else:
                 self.layers.append(None)

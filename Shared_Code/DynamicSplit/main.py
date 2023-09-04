@@ -2,30 +2,14 @@
 # Split learning: ResNet18
 # ============================================================================
 #Code imports
-from settings import RESNETTYPE, NUM_USERS, EPOCHS, LOCAL_EP, FRAC, LR, TRAINING_SORCE, ACTIVATEDYNAMIC, MODELTYPE,clientlayers,NOISE
-
-if TRAINING_SORCE=="mnist10":
-    from Dictionary_Types.dic_mnist10 import DATA_NAME, NUM_CHANNELS, IMG_TYPE
-elif TRAINING_SORCE=="fmnist10":
-    from Dictionary_Types.dic_fmnist10 import DATA_NAME, NUM_CHANNELS, IMG_TYPE
-elif TRAINING_SORCE=="cifar10":
-    from Dictionary_Types.dic_cifar10 import DATA_NAME, NUM_CHANNELS, IMG_TYPE
-elif TRAINING_SORCE=="cifar100":  
-    from Dictionary_Types.dic_cifar100 import DATA_NAME, NUM_CHANNELS, IMG_TYPE
-elif TRAINING_SORCE=="ham10000":  
-    from Dictionary_Types.dic_ham10000 import DATA_NAME, NUM_CHANNELS, IMG_TYPE
-elif TRAINING_SORCE=="intelnet":  
-    from Dictionary_Types.dic_intelnet import DATA_NAME, NUM_CHANNELS, IMG_TYPE
-elif TRAINING_SORCE=="IP102_FC_EC":  
-    from Dictionary_Types.dic_IP102_FC_EC import DATA_NAME, NUM_CHANNELS, IMG_TYPE
-elif TRAINING_SORCE=="IP102_FC":  
-    from Dictionary_Types.dic_IP102_FC import DATA_NAME, NUM_CHANNELS, IMG_TYPE
-elif TRAINING_SORCE=="IP102_EC":  
-    from Dictionary_Types.dic_IP102_EC import DATA_NAME, NUM_CHANNELS, IMG_TYPE
-
+from settings import RESNETTYPE, NUM_USERS, EPOCHS, LOCAL_EP, FRAC, LR, TRAINING_SORCE, ACTIVATEDYNAMIC, MODELTYPE,clientlayers,NOISE,DATA_NAME, NUM_CHANNELS, IMG_TYPE
+from sklearn.metrics import roc_curve, auc
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.preprocessing import label_binarize
 
 import Classes.DatasetManger as DatasetManger    
-import Classes.Server as Server
+import Classes.Server_modi_V1 as Server
 import Classes.Client as Client
 #Resnet
 import Classes.Baseblock as Baseblock
@@ -48,6 +32,7 @@ from torch import nn
 from pandas import DataFrame
 import numpy as np
 from datetime import date, datetime
+
 
 def overfitting(epoch,Global):
     
@@ -72,6 +57,7 @@ def changelayer(layersplit):
         new_layersplit=[rand,total-rand] 
     print("Layer update: ",[rand,total-rand])
     return [rand,total-rand]
+
 ###################Run training for model################# 
 def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_test,dict_users,dict_users_test,Arch_Layers):
     # this epoch is global epoch, also known as rounds
@@ -83,7 +69,6 @@ def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_te
     start_time = time.time()
     
     layersplit=Arch_Layers.copy()
-    
     
     #Start creating model
     for iter in range(EPOCHS):
@@ -106,7 +91,6 @@ def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_te
             tempClientSplitArray.append(layersplit)
             tempCArray.append(idx)
             
-            
             #Set up client and check for layers needed
             local = Client.Client(Global,LOCAL_EP,layersplit,net_glob_client, idx, LR, device, dataset_train = dataset_train, dataset_test = dataset_test, idxs = dict_users[idx], idxs_test = dict_users_test[idx])
             C_layers,Layer_Count=local.check4update(net_glob_client,net_glob_server)
@@ -123,7 +107,6 @@ def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_te
             # copy weight to net_glob_client -- use to update the client-side model of the next client to be trained
             net_glob_client.load_state_dict(w_client)
             
-        
         #Save times
         ClientArray.append(tempCArray)
         SplArray.append(tempClientSplitArray)
@@ -132,8 +115,7 @@ def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_te
         
         #Stop code if model starts over fitting
         #if overfitting(iter, Global):
-        #    break
-        
+        #    break        
             
     return TcArray,TsArray,SplArray,ClientArray
 
@@ -150,14 +132,30 @@ def setup_file_name():
     print(f"---------{program}----------")   
     program = f"Results\\{program}"
     return program
+
+################### ROC Path #########################
+def setup_roc_path():
+    today = f"{date.today()}".replace("-","_")
+    timeS=f"{datetime.now().strftime('%H:%M:%S')}".replace(":","_")
+    if NUM_USERS==1:
+        roc_path = "CL"+MODELTYPE+"_D"+today+"_T"+timeS+DATA_NAME+f"_U{NUM_USERS}_E{EPOCHS}_e{LOCAL_EP}_Noise{NOISE}.png"
+    elif ACTIVATEDYNAMIC==True:
+        roc_path = "DSL_"+MODELTYPE+"_D"+today+"_T"+timeS+DATA_NAME+f"_U{NUM_USERS}_E{EPOCHS}_e{LOCAL_EP}_Noise{NOISE}.png"
+    elif ACTIVATEDYNAMIC==False:
+        roc_path = "SL_"+MODELTYPE+"_D"+today+"_T"+timeS+DATA_NAME+f"_U{NUM_USERS}_E{EPOCHS}_e{LOCAL_EP}_Noise{NOISE}.png"
+    print(f"---------{roc_path}----------")   
+    roc_path = f"Results\\{roc_path}"
+    return roc_path
+####################################################
+
 ###################Save results of accuracy and time to xlsx file#################     
 def save_results(Global,TsArray,TcArray,program,SplArray,ClientArray):
     print("#########Saving Results############")
     # Save output data to .excel file (we use for comparision plots)
     round_process = [i for i in range(1, len(Global.acc_train_collect)+1)]
-    df = DataFrame({'round': round_process,'acc_train':Global.acc_train_collect, 'acc_test':Global.acc_test_collect,"Loss":Global.loss_test_collect, 'Gobal E Time (m)':TsArray, 
-                    'Local e Time per Client (m)': TcArray,'Split Count':SplArray,
-                    "Client":ClientArray})     
+    
+    df = DataFrame({'round': round_process,'acc_train':Global.acc_train_collect, 'acc_test':Global.acc_test_collect, "Loss":Global.loss_test_collect, "Precision":Global.precision_test_collect, "Recall":Global.recall_test_collect, "F1":Global.f1_test_collect, "G-mean (micro)":Global.gmean_micro_test_collect, "G-mean (macro)":Global.gmean_macro_test_collect, 'Gobal E Time (m)':TsArray, 'Local e Time per Client (m)': TcArray,'Split Count':SplArray, "Client":ClientArray})     
+      
     df.to_excel(program, sheet_name= "v1_test", index = False)   
 
 ###################Resnet client model and GPU parallel setup "if avaiable"#################
@@ -197,6 +195,42 @@ def setup_s_resnet(device,Global,Arch_Layers):
     net_glob_server.to(device)  
     return net_glob_server
 
+#################################### ROC Plot###################
+def plot_roc_curves(Global, num_classes=5):
+    # Convert true_labels and pred_probs to numpy arrays
+    roc_path = setup_roc_path()
+    true_labels = Global.get_true_labels()
+    pred_probs = Global.get_pred_probs()
+
+    true_labels = np.array(true_labels)
+    pred_probs = np.array(pred_probs)
+
+    # Binarize the labels for one-vs-all ROC curve
+    true_labels = label_binarize(true_labels, classes=[0, 1, 2, 3, 4])
+
+    # Compute ROC curve and ROC area for each class
+    fpr = dict()
+    tpr = dict()
+    roc_auc = dict()
+
+    for i in range(num_classes):
+        fpr[i], tpr[i], _ = roc_curve(true_labels[:, i], pred_probs[:, i])
+        roc_auc[i] = auc(fpr[i], tpr[i])
+
+    # Plot ROC curves
+    for i in range(num_classes):
+        plt.plot(fpr[i], tpr[i], label=f'ROC curve of class {i} (area = {roc_auc[i]:.2f})')
+
+    plt.plot([0, 1], [0, 1], 'k--')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('Receiver operating characteristic to multi-class')
+    plt.legend(loc="lower right")
+    plt.savefig(roc_path)  # Save the plot
+#     plt.show()
+
 ############################################################################################
 ###############################Start of program#############################################      
 def main():
@@ -231,24 +265,13 @@ def main():
     dict_users_test = DatasetManger.dataset_iid(dataset_test, NUM_USERS)
     
     print("#############Start AI training#############")
-    TcArray,TsArray,SplArray,ClientArray=run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_test,dict_users,dict_users_test,Arch_Layers)
+    TcArray,TsArray,SplArray,ClientArray=run(Global,net_glob_client,net_glob_server, device, dataset_train, dataset_test, dict_users, dict_users_test, Arch_Layers)
          
     
     print("Training and Evaluation completed!")    
     # Save output data to .excel file (we use for comparision plots)
     save_results(Global,TsArray,TcArray,program,SplArray,ClientArray) 
     
-
-
-
+    plot_roc_curves(Global, num_classes=len(IMG_TYPE))
+    
 main()
-
-
-
-
-
-
-
-
-
-
