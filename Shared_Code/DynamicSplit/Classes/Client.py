@@ -20,7 +20,7 @@ class Client(object):
         self.layers=layers
     
 #copy.deepcopy(net_glob_client).to(device),net_glob_server,device
-    def train(self, net_glob_client,net_glob_server,device,NOISE=False):
+    def train(self, net_glob_client,net_glob_server,device,NOISE=False,SPLITTYPE=None):
         net_glob_client.train()
         optimizer_client = torch.optim.Adam(net_glob_client.parameters(), lr = self.lr) 
         tempArray=[]
@@ -39,12 +39,13 @@ class Client(object):
                 # Sending activations to server and receiving Y^ from server
                 dfx = self.Global.train_server(client_fx, labels, iter, self.local_ep, self.idx, len_batch,net_glob_server,device,self.layers,volly)
                 #--------backward prop -------------
-                fx.backward(dfx)
+                if SPLITTYPE!=1:
+                    fx.backward(dfx)
                 optimizer_client.step()
             tempArray.append((time.time() - start_time_local)/60)
         return net_glob_client.state_dict() , tempArray
     
-    def evaluate(self, net, ell,net_glob_server,device,NOISE=False):
+    def evaluate(self, net, ell,net_glob_server,device,NOISE=False,SPLITTYPE=None):
         layer_check_array=[self.layers == net.Layer_Count,self.layers == net_glob_server.Layer_Count, net.Layer_Count == net_glob_server.Layer_Count,]
         print("Check if server, client, and update match: ",layer_check_array[0] and layer_check_array[1] and layer_check_array[2])
         

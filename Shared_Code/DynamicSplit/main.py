@@ -2,7 +2,7 @@
 # Split learning: ResNet18
 # ============================================================================
 #Code imports
-from settings import RESNETTYPE, NUM_USERS, EPOCHS, LOCAL_EP, FRAC, LR, TRAINING_SORCE, ACTIVATEDYNAMIC, MODELTYPE,clientlayers,NOISE,DATA_NAME, NUM_CHANNELS, IMG_TYPE
+from settings import RESNETTYPE, NUM_USERS, EPOCHS, LOCAL_EP, FRAC, LR, TRAINING_SORCE, SPLITTYPE, MODELTYPE,clientlayers,NOISE,DATA_NAME, NUM_CHANNELS, IMG_TYPE
 from sklearn.metrics import roc_curve, auc
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,22 +11,30 @@ from sklearn.preprocessing import label_binarize
 import Classes.DatasetManger as DatasetManger    
 import Classes.Server_modi_V1 as Server
 import Classes.Client as Client
+
 #Resnet
 import Classes.Baseblock as Baseblock
 import Classes.ResNet18SS as ResNet18SS
 import Classes.ResNet18CS as ResNet18CS
-
-
 #Google
 import Classes.GoogleBlocks as GoogleBlocks
 import Classes.GoogleNetCS as GoogleNetCS
 import Classes.GoogleNetSS as GoogleNetSS
-
 #MobileNet
 import Classes.MobileNetBlocks as MobileNetBlocks
 import Classes.MobileNetCS as MobileNetCS
 import Classes.MobileNetSS as MobileNetSS
-##################################################################################
+
+#CL_Resnet
+import Classes.Central.CL_ResNet18SS as CL_ResNet18SS
+import Classes.Central.CL_ResNet18CS as CL_ResNet18CS
+# #CL_Google
+import Classes.Central.CL_GoogleNetCS as CL_GoogleNetCS
+import Classes.Central.CL_GoogleNetSS as CL_GoogleNetSS
+# #CL_MobileNet
+import Classes.Central.CL_MobileNetCS as CL_MobileNetCS
+import Classes.Central.CL_MobileNetSS as CL_MobileNetSS
+# =============================================================================
 import torch, random, time, copy
 from torch import nn
 from pandas import DataFrame
@@ -85,7 +93,7 @@ def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_te
             #Test change in layer
             print("\nBase Layer:",layersplit)
             rand=random.randint(0,1)
-            if rand == 1 and ACTIVATEDYNAMIC==True:
+            if rand == 1 and SPLITTYPE==3:
                 layersplit=changelayer(layersplit)
             #Save Layers per client
             tempClientSplitArray.append(layersplit)
@@ -98,10 +106,10 @@ def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_te
             net_glob_client.Layer_Count=Layer_Count
             
             # Training ------------------
-            w_client,tempArray = local.train(copy.deepcopy(net_glob_client).to(device),net_glob_server,device,NOISE)
+            w_client,tempArray = local.train(copy.deepcopy(net_glob_client).to(device),net_glob_server,device,NOISE,SPLITTYPE)
             
             # Testing -------------------
-            local.evaluate(copy.deepcopy(net_glob_client).to(device),iter,net_glob_server,device,NOISE)
+            local.evaluate(copy.deepcopy(net_glob_client).to(device),iter,net_glob_server,device,NOISE,SPLITTYPE)
                         
             tempClientArray.append(tempArray)
             # copy weight to net_glob_client -- use to update the client-side model of the next client to be trained
@@ -123,12 +131,12 @@ def run(Global,net_glob_client,net_glob_server, device, dataset_train,dataset_te
 def setup_file_name():
     today = f"{date.today()}".replace("-","_")
     timeS=f"{datetime.now().strftime('%H:%M:%S')}".replace(":","_")
-    if NUM_USERS==1:
-        program="CL"+MODELTYPE+"_D"+today+"_T"+timeS+DATA_NAME+f"_U{NUM_USERS}_E{EPOCHS}_e{LOCAL_EP}_Noise{NOISE}.xlsx"
-    elif ACTIVATEDYNAMIC==True:
+    if SPLITTYPE==3:
         program="DSL_"+MODELTYPE+"_D"+today+"_T"+timeS+DATA_NAME+f"_U{NUM_USERS}_E{EPOCHS}_e{LOCAL_EP}_Noise{NOISE}.xlsx"
-    elif ACTIVATEDYNAMIC==False:
+    elif SPLITTYPE==2:
         program="SL_"+MODELTYPE+"_D"+today+"_T"+timeS+DATA_NAME+f"_U{NUM_USERS}_E{EPOCHS}_e{LOCAL_EP}_Noise{NOISE}.xlsx"
+    elif SPLITTYPE==1:
+        program="CL_"+MODELTYPE+"_D"+today+"_T"+timeS+DATA_NAME+f"_E{EPOCHS}_Noise{NOISE}.xlsx"
     print(f"---------{program}----------")   
     program = f"Results\\{program}"
     return program
@@ -137,12 +145,12 @@ def setup_file_name():
 def setup_roc_path():
     today = f"{date.today()}".replace("-","_")
     timeS=f"{datetime.now().strftime('%H:%M:%S')}".replace(":","_")
-    if NUM_USERS==1:
-        roc_path = "CL"+MODELTYPE+"_D"+today+"_T"+timeS+DATA_NAME+f"_U{NUM_USERS}_E{EPOCHS}_e{LOCAL_EP}_Noise{NOISE}.png"
-    elif ACTIVATEDYNAMIC==True:
+    if SPLITTYPE==3:
         roc_path = "DSL_"+MODELTYPE+"_D"+today+"_T"+timeS+DATA_NAME+f"_U{NUM_USERS}_E{EPOCHS}_e{LOCAL_EP}_Noise{NOISE}.png"
-    elif ACTIVATEDYNAMIC==False:
+    elif SPLITTYPE==2:
         roc_path = "SL_"+MODELTYPE+"_D"+today+"_T"+timeS+DATA_NAME+f"_U{NUM_USERS}_E{EPOCHS}_e{LOCAL_EP}_Noise{NOISE}.png"
+    elif SPLITTYPE==1:
+        roc_path = "CL_"+MODELTYPE+"_D"+today+"_T"+timeS+DATA_NAME+f"_E{EPOCHS}_Noise{NOISE}.png"
     print(f"---------{roc_path}----------")   
     roc_path = f"Results\\{roc_path}"
     return roc_path
@@ -161,7 +169,23 @@ def save_results(Global,TsArray,TcArray,program,SplArray,ClientArray):
 ###################Resnet client model and GPU parallel setup "if avaiable"#################
 def setup_c_resnet(device,Global):
     Arch_Layers=[2,4]
-    if MODELTYPE=="ResNet50":
+    #Central
+    if MODELTYPE=="ResNet50" and SPLITTYPE==1:
+        Arch_Layers=[0,6]
+        print("Using Bottleneck")
+        net_glob_client = CL_ResNet18CS.ResNet18_client_side(Global,NUM_CHANNELS,Baseblock.Bottleneck,RESNETTYPE,Arch_Layers)
+    elif (MODELTYPE=="ResNet18" or MODELTYPE=="ResNet34")  and SPLITTYPE==1:
+        print("Using BaseBlock")
+        Arch_Layers=[0,6]
+        net_glob_client = CL_ResNet18CS.ResNet18_client_side(Global,NUM_CHANNELS,Baseblock.Baseblock,RESNETTYPE,Arch_Layers)
+    elif MODELTYPE=="GoogleNet" and SPLITTYPE==1:
+        Arch_Layers=[0,5]
+        net_glob_client = CL_GoogleNetCS.GoogLeNetClient(NUM_CHANNELS,len(IMG_TYPE),GoogleBlocks.conv_block,GoogleBlocks.Inception_block,Arch_Layers)
+    elif MODELTYPE=="MobileNet" and SPLITTYPE==1:
+        Arch_Layers=[0,16]
+        net_glob_client = CL_MobileNetCS.MobileNetV3Client("large", NUM_CHANNELS,len(IMG_TYPE),MobileNetBlocks.MobileNetV3Block,MobileNetBlocks.BNeck,Arch_Layers)
+    #Split
+    elif MODELTYPE=="ResNet50":
         Arch_Layers=[clientlayers,6-clientlayers]
         print("Using Bottleneck")
         net_glob_client = ResNet18CS.ResNet18_client_side(Global,NUM_CHANNELS,Baseblock.Bottleneck,RESNETTYPE,Arch_Layers)
@@ -181,15 +205,27 @@ def setup_c_resnet(device,Global):
 
 ###################Resnet server model and GPU parallel setup "if avaiable"#################
 def setup_s_resnet(device,Global,Arch_Layers):
-    if MODELTYPE=="ResNet50":
+    #Central
+    if MODELTYPE=="ResNet50" and SPLITTYPE==1:
+        print("Using Bottleneck")
+        net_glob_server = CL_ResNet18SS.ResNet18_server_side(Global,Baseblock.Bottleneck, RESNETTYPE, len(IMG_TYPE),NUM_CHANNELS,Arch_Layers) #7 is my numbr of classes
+    elif (MODELTYPE=="ResNet18" or MODELTYPE=="ResNet34") and SPLITTYPE==1:
+        print("Using BaseBlock")
+        net_glob_server = CL_ResNet18SS.ResNet18_server_side(Global,Baseblock.Baseblock, RESNETTYPE, len(IMG_TYPE),NUM_CHANNELS,Arch_Layers) #7 is my numbr of classes
+    elif MODELTYPE=="GoogleNet" and SPLITTYPE==1:
+        net_glob_server = CL_GoogleNetSS.GoogLeNetServer(NUM_CHANNELS,len(IMG_TYPE),GoogleBlocks.conv_block,GoogleBlocks.Inception_block,Arch_Layers)
+    elif MODELTYPE=="MobileNet" and SPLITTYPE==1:
+        net_glob_server = CL_MobileNetSS.MobileNetV3Server("large", NUM_CHANNELS,len(IMG_TYPE),MobileNetBlocks.MobileNetV3Block,MobileNetBlocks.BNeck,Arch_Layers)
+    #Split
+    elif MODELTYPE=="ResNet50":
         print("Using Bottleneck")
         net_glob_server = ResNet18SS.ResNet18_server_side(Global,Baseblock.Bottleneck, RESNETTYPE, len(IMG_TYPE),NUM_CHANNELS,Arch_Layers) #7 is my numbr of classes
-    if MODELTYPE=="ResNet18" or MODELTYPE=="ResNet34":
+    elif MODELTYPE=="ResNet18" or MODELTYPE=="ResNet34":
         print("Using BaseBlock")
         net_glob_server = ResNet18SS.ResNet18_server_side(Global,Baseblock.Baseblock, RESNETTYPE, len(IMG_TYPE),NUM_CHANNELS,Arch_Layers) #7 is my numbr of classes
-    if MODELTYPE=="GoogleNet":
-        net_glob_server = GoogleNetSS.GoogLeNetServer(NUM_CHANNELS,len(IMG_TYPE),GoogleBlocks.Inception_block,Arch_Layers)
-    if MODELTYPE=="MobileNet":
+    elif MODELTYPE=="GoogleNet":
+        net_glob_server = GoogleNetSS.GoogLeNetServer(NUM_CHANNELS,len(IMG_TYPE),GoogleBlocks.conv_block,GoogleBlocks.Inception_block,Arch_Layers)
+    elif MODELTYPE=="MobileNet":
         net_glob_server = MobileNetSS.MobileNetV3Server("large", NUM_CHANNELS,len(IMG_TYPE),MobileNetBlocks.MobileNetV3Block,MobileNetBlocks.BNeck,Arch_Layers)
     
     net_glob_server.to(device)  

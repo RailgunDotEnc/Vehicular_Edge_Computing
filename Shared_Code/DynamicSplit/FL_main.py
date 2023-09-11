@@ -690,6 +690,76 @@ acc_train_collect = []
 loss_test_collect = []
 acc_test_collect = []
 
+precision_test_collect = []
+recall_train_collect = []
+f1_train_collect = []
+gmean_micro_train_collect = []
+gmean_macro_train_collect = []
+
+loss_test_collect = []
+acc_test_collect = []
+precision_test_collect = []
+recall_test_collect = []
+f1_test_collect = []
+gmean_micro_test_collect = []
+gmean_macro_test_collect = []
+
+batch_acc_train = []
+batch_loss_train = []
+batch_precision_train = []
+batch_recall_train = []
+batch_f1_train = []
+batch_gmean_micro_train = []
+batch_gmean_macro_train = []
+
+batch_acc_test = []
+batch_loss_test = []
+batch_precision_test = []
+batch_recall_test = []
+batch_f1_test = []
+batch_gmean_micro_test = []
+batch_gmean_macro_test = []
+
+# To store ROC curve data
+true_labels = []
+pred_probs = []
+
+criterion = nn.CrossEntropyLoss()
+count1 = 0
+count2 = 0
+
+# to print train - test together in each round-- these are made global
+acc_avg_all_user_train = 0
+loss_avg_all_user_train = 0
+precision_avg_all_user_train = 0
+recall_avg_all_user_train = 0
+f1_avg_all_user_train = 0
+gmean_micro_avg_all_user_train = 0
+gmean_macro_avg_all_user_train = 0
+
+loss_train_collect_user = []
+acc_train_collect_user = []
+precision_train_collect_user = []
+recall_train_collect_user = []
+f1_train_collect_user = []
+gmean_macro_train_collect_user = []
+gmean_micro_train_collect_user = []
+
+loss_test_collect_user = []
+acc_test_collect_user = []
+precision_test_collect_user = []
+recall_test_collect_user = []
+f1_test_collect_user = []
+gmean_micro_test_collect_user = []
+gmean_macro_test_collect_user = []
+
+#client idx collector
+idx_collect = []
+l_epoch_check = False
+fed_check = False
+
+tick=0    
+
 start_time = time.time() 
 for iter in range(EPOCHS):
     w_locals, loss_locals_train, acc_locals_train, loss_locals_test, acc_locals_test = [], [], [], [], []
@@ -751,8 +821,9 @@ print("Training and Evaluation completed!")
 #===============================================================================
 # Save output data to .excel file (we use for comparision plots)
 round_process = [i for i in range(1, len(acc_train_collect)+1)]
-df = DataFrame({'round': round_process,'acc_train':acc_train_collect, 'acc_test':acc_test_collect, 'Gobal E Time (m)':TsArray, 'Local e Time per Client (m)': TcArray})     
-df.to_excel(program, sheet_name= "v1_test", index = False)     
+#df = DataFrame({'round': round_process,'acc_train':acc_train_collect, 'acc_test':acc_test_collect, 'Gobal E Time (m)':TsArray, 'Local e Time per Client (m)': TcArray})    
+df = DataFrame({'round': round_process,'acc_train':acc_train_collect, 'acc_test':acc_test_collect, "Loss":loss_test_collect, "Precision":precision_test_collect, "Recall":recall_test_collect, "F1":f1_test_collect, "G-mean (micro)":gmean_micro_test_collect, "G-mean (macro)":gmean_macro_test_collect, 'Gobal E Time (m)':TsArray, 'Local e Time per Client (m)': TcArray})     
+df.to_excel(program, sheet_name= "v1_test", index = False)    
 
 #=============================================================================
 #                         Program Completed
