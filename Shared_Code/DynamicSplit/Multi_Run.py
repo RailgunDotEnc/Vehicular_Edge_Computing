@@ -6,14 +6,17 @@ splittype={
     3: "Dynamic"
     }
 
-def runfile():
+def runfile(file):
     print("Running...")
-    process = subprocess.Popen(["python", "main.py"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if file=="main":
+        process = subprocess.Popen(["python", "main.py"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    else:
+        process = subprocess.Popen(["python", "FL_main.py"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     # Wait for the process to complete and print any errors or exceptions
     process.communicate()
     print("Done\n")
 
-def Start(arch,data,SPLITTYPE=3):
+def Start(file,arch,data,SPLITTYPE=3):
     print("Set to ",arch,data,splittype[SPLITTYPE])
     file=open(r"E:\Vehicular_Edge_Computing\Shared_Code\DynamicSplit\settings.py","r")
     collect=[]
@@ -31,7 +34,7 @@ def Start(arch,data,SPLITTYPE=3):
     for i in range(len(collect)):
         file.writelines(collect[i])
     file.close()
-    runfile()
+    runfile(file)
     
         
 
@@ -39,23 +42,23 @@ def Start(arch,data,SPLITTYPE=3):
 #ResNet18, ResNet34, ResNet50, GoogleNet, MobileNet
 #              Arch       Dataset
 
-Start("ResNet18","IP102_FC_EC",SPLITTYPE=1)
+Start("FL_main","ResNet18","IP102_FC_EC")
 
-Start("ResNet18","IP102_FC",SPLITTYPE=1)
+Start("FL_main","ResNet18","IP102_FC")
 
-Start("ResNet18","IP102_EC",SPLITTYPE=1)
-
-
-Start("GoogleNet","IP102_FC_EC",SPLITTYPE=1)
-
-Start("GoogleNet","IP102_FC",SPLITTYPE=1)
-
-Start("GoogleNet","IP102_EC",SPLITTYPE=1)
+Start("FL_main","ResNet18","IP102_EC")
 
 
-Start("MobileNet","IP102_FC_EC",SPLITTYPE=1)
+Start("FL_main","GoogleNet","IP102_FC_EC")
 
-Start("MobileNet","IP102_FC",SPLITTYPE=1)
+Start("FL_main","GoogleNet","IP102_FC")
 
-Start("MobileNet","IP102_EC",SPLITTYPE=1)
+Start("FL_main","GoogleNet","IP102_EC")
+
+
+Start("FL_main","MobileNet","IP102_FC_EC")
+
+Start("FL_main","MobileNet","IP102_FC")
+
+Start("FL_main","MobileNet","IP102_EC")
 
